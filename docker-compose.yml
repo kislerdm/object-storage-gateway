@@ -35,9 +35,8 @@ services:
       - MINIO_SECRET_KEY=bluegreen
 
   gateway-container: # Here, this is where you can configure your gateway.
-    # Feel free to change configuration options of this container, like the image, or the Dockerfile itself.
     build: .
-    command: sleep 36000 # Changeme: Put in just so the container stays on after being started.
+    command: sleep 7200
     ports: [ "3000:3000" ]
     networks:
       amazin-object-storage:

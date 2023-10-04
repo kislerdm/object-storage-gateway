@@ -1,9 +1,14 @@
-FROM golang:1.15
-WORKDIR /mnt/homework
-COPY . .
-RUN go build
+FROM golang:1.21-alpine
 
-# Docker is used as a base image so you can easily start playing around in the container using the Docker command line client.
+WORKDIR /mnt/homework
+
+COPY . .
+
+RUN go mod tidy && \
+    go build -o homework-object-storage .
+
 FROM docker
+
 COPY --from=0 /mnt/homework/homework-object-storage /usr/local/bin/homework-object-storage
+
 RUN apk add bash curl
