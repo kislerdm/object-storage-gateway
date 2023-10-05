@@ -1,4 +1,4 @@
-package main
+package gateway
 
 import (
 	"context"
@@ -12,10 +12,15 @@ import (
 )
 
 // NewMinioClient initialises a new Minio client and checks if it's online.
-func NewMinioClient(ctx context.Context, endpoint, accessKeyID, secretAccessKey string) (*MinioClient, error) {
-	const defaultBucket = "store"
+func NewMinioClient(ipAddress, accessKeyID, secretAccessKey string) (*MinioClient, error) {
+	const (
+		defaultBucket = "store"
+		defaultPort   = "9000"
+	)
 
-	minioClient, err := minio.New(endpoint, &minio.Options{
+	host := ipAddress + ":" + defaultPort
+
+	minioClient, err := minio.New(host, &minio.Options{
 		Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 	})
 	if err != nil {
@@ -35,6 +40,17 @@ func NewMinioClient(ctx context.Context, endpoint, accessKeyID, secretAccessKey 
 type MinioClient struct {
 	defaultBucket string
 	c             *minio.Client
+}
+
+func (r MinioClient) ObjectExists(ctx context.Context, id string) (bool, error) {
+	_, err := r.c.GetObjectACL(ctx, r.defaultBucket, id)
+	if err != nil {
+		if IsNotFoundError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, err
 }
 
 // Read reads an object given its id.
