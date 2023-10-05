@@ -1,26 +1,39 @@
-package main
+package httphandler
 
 import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
+
+	"github.com/kislerdm/gateway"
 )
 
+func NewHandler(storageClient *gateway.Gateway) *HTTPHandler {
+	return &HTTPHandler{
+		io:           storageClient,
+		commonPrefix: "object",
+		logger:       slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+	}
+}
+
 type HTTPHandler struct {
-	io           ReadWriter
 	commonPrefix string
-	logger       slog.Logger
+	io           *gateway.Gateway
+	logger       *slog.Logger
 }
 
 func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !h.knownRoute(r.URL.Path) {
+		h.logger.Error("UNSUPPORTED ROUTE", "error", "no route")
 		writeErrorMessage(w, http.StatusBadRequest, "route cannot be handled")
 		return
 	}
 
 	objectID := h.readObjectID(r.URL.Path)
-	if err := ValidateObjectID(objectID); err != nil {
+	if err := gateway.ValidateObjectID(objectID); err != nil {
+		h.logger.Error("UNSUPPORTED INPUT", "error", err)
 		writeErrorMessage(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
@@ -30,7 +43,7 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data, err := h.io.Read(r.Context(), objectID)
 		defer func() { _ = data.Close() }()
 
-		if IsNotFoundError(err) {
+		if gateway.IsNotFoundError(err) {
 			h.logger.Error("READING DATA", "error", err)
 			writeErrorMessage(w, http.StatusNotFound, "object not found")
 			return
