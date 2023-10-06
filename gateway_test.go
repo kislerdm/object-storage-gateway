@@ -20,14 +20,13 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 	t.Run("shall return data when the node with the object is known", func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.cacheObjectLocation[inputID] = "myhost-0"
-
-		want := io.NopCloser(strings.NewReader("qux"))
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{Data: want})
+		gateway := newMockGateway()
+		gateway.cacheObjectLocation[inputID] = "myhost-0"
+		storedDataReader := strings.NewReader("foo")
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
-		got, err := assignator.Read(context.TODO(), inputID)
+		got, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err != nil {
@@ -35,6 +34,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 			return
 		}
 
+		want := io.NopCloser(storedDataReader)
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("unexpected data output want: %#v, got: %#v", want, got)
 			return
@@ -43,14 +43,15 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 	t.Run("shall return data when the node with the object is not known", func(t *testing.T) {
 		// GIVEN
-		want := io.NopCloser(strings.NewReader("qux"))
 
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{Data: want})
+		storedDataReader := strings.NewReader("qux")
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
-		got, err := assignator.Read(context.TODO(), inputID)
+		got, err := gateway.Read(context.TODO(), inputID)
 
+		want := io.NopCloser(storedDataReader)
 		// THEN
 		if err != nil {
 			t.Errorf("no error expected")
@@ -66,12 +67,12 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 	t.Run("shall fail to get a connection to the node with the object when its known", func(t *testing.T) {
 		// GIVEN
 
-		assignator := newMockAssignator()
-		assignator.cacheObjectLocation[inputID] = "myhost-0"
-		assignator.storageConnectionFactory = mockReadWriterFactory(errors.New("error"), nil)
+		gateway := newMockGateway()
+		gateway.cacheObjectLocation[inputID] = "myhost-0"
+		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
-		_, err := assignator.Read(context.TODO(), inputID)
+		_, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil {
@@ -82,11 +83,11 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 	t.Run("shall fail to get a connection to the node the object's location is not known", func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(errors.New("error"), nil)
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
-		_, err := assignator.Read(context.TODO(), inputID)
+		_, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil {
@@ -97,11 +98,11 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 	t.Run(`shall return "not found" error`, func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{Err: minio.ErrorResponse{StatusCode: http.StatusNotFound}})
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Err: minio.ErrorResponse{StatusCode: http.StatusNotFound}})
 
 		// WHEN
-		_, err := assignator.Read(context.TODO(), inputID)
+		_, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil {
@@ -116,11 +117,11 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 	t.Run(`shall fail to read object`, func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{Err: errors.New("foo")})
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Err: errors.New("foo")})
 
 		// WHEN
-		_, err := assignator.Read(context.TODO(), inputID)
+		_, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil || err.Error() != "foo" {
@@ -134,16 +135,16 @@ func TestReadWriterStickyAssignator_Write(t *testing.T) {
 	t.Parallel()
 
 	const inputID = "obj"
-	inputData := io.NopCloser(strings.NewReader("data"))
+	inputData := strings.NewReader("data")
 
 	t.Run("shall overwrite existing object when its location was known already", func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.cacheObjectLocation[inputID] = "myhost-0"
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{})
+		gateway := newMockGateway()
+		gateway.cacheObjectLocation[inputID] = "myhost-0"
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{})
 
 		// WHEN
-		err := assignator.Write(context.TODO(), inputID, inputData)
+		err := gateway.Write(context.TODO(), inputID, inputData)
 
 		// THEN
 		if err != nil {
@@ -153,11 +154,11 @@ func TestReadWriterStickyAssignator_Write(t *testing.T) {
 	})
 	t.Run("shall overwrite existing object when its location was not known", func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{Data: inputData})
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: inputData})
 
 		// WHEN
-		err := assignator.Write(context.TODO(), inputID, inputData)
+		err := gateway.Write(context.TODO(), inputID, inputData)
 
 		// THEN
 		if err != nil {
@@ -167,11 +168,11 @@ func TestReadWriterStickyAssignator_Write(t *testing.T) {
 	})
 	t.Run("shall write the object which is not present in the storage cluster yet", func(t *testing.T) {
 		// GIVEN
-		assignator := newMockAssignator()
-		assignator.storageConnectionFactory = mockReadWriterFactory(nil, &readWritScannerMock{})
+		gateway := newMockGateway()
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{})
 
 		// WHEN
-		err := assignator.Write(context.TODO(), inputID, inputData)
+		err := gateway.Write(context.TODO(), inputID, inputData)
 
 		// THEN
 		if err != nil {
@@ -240,35 +241,8 @@ func (m *mockCredentialsReader) ReadCredentials(_ context.Context, _ string) (st
 	return m.AccessKeyID, m.SecretAccessKey, nil
 }
 
-type readWritScannerMock struct {
-	Err  error
-	Data io.ReadCloser
-}
-
-func (r *readWritScannerMock) ObjectExists(_ context.Context, _ string) (bool, error) {
-	if r.Err != nil {
-		return false, r.Err
-	}
-	return r.Data != nil, nil
-}
-
-func (r *readWritScannerMock) Read(_ context.Context, _ string) (io.ReadCloser, error) {
-	if r.Err != nil {
-		return nil, r.Err
-	}
-	return r.Data, nil
-}
-
-func (r *readWritScannerMock) Write(_ context.Context, _ string, data io.ReadCloser) error {
-	if r.Err != nil {
-		return r.Err
-	}
-	r.Data = data
-	return nil
-}
-
-func mockReadWriterFactory(err error, rw ReadWriteScanner) StorageConnectionFactory {
-	return func(endpoint, accessKeyID, secretAccessKey string) (ReadWriteScanner, error) {
+func mockMinioConnectionFactory(err error, rw minioConnectionPort) minioConnectionFactory {
+	return func(endpoint, accessKeyID, secretAccessKey string) (minioConnectionPort, error) {
 		if err != nil {
 			return nil, err
 		}
@@ -276,8 +250,58 @@ func mockReadWriterFactory(err error, rw ReadWriteScanner) StorageConnectionFact
 	}
 }
 
-func newMockAssignator() Gateway {
-	return Gateway{
+type mockMinioClient struct {
+	Err  error
+	Data io.Reader
+}
+
+func (m *mockMinioClient) GetObjectACL(_ context.Context, _, objectName string) (*minio.ObjectInfo, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return &minio.ObjectInfo{
+		Key: objectName,
+	}, nil
+}
+
+func (m *mockMinioClient) GetObject(ctx context.Context, _, _ string, _ minio.GetObjectOptions) (io.ReadCloser, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return io.NopCloser(m.Data), nil
+}
+
+func (m *mockMinioClient) BucketExists(ctx context.Context, _ string) (bool, error) {
+	if m.Err != nil {
+		return false, m.Err
+	}
+	return m.Data != nil, nil
+}
+
+func (m *mockMinioClient) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, _ int64, _ minio.PutObjectOptions) (minio.UploadInfo, error) {
+	if m.Err != nil {
+		return minio.UploadInfo{}, m.Err
+	}
+	m.Data = reader
+	return minio.UploadInfo{
+		Bucket: bucketName,
+		Key:    objectName,
+	}, nil
+}
+
+func (m *mockMinioClient) MakeBucket(_ context.Context, _ string, _ minio.MakeBucketOptions) error {
+	return m.Err
+}
+
+func (m *mockMinioClient) IsOnline() bool {
+	if m.Err != nil {
+		return false
+	}
+	return true
+}
+
+func newMockGateway() Client {
+	return Client{
 		StorageHostPrefix: "myhost",
 		dnsReader: &mockDNSReader{
 			HostCnt: 3,
@@ -286,7 +310,7 @@ func newMockAssignator() Gateway {
 			AccessKeyID:     "foo",
 			SecretAccessKey: "bar",
 		},
-		storageConnectionFactory: mockReadWriterFactory(errors.New("undefined"), nil),
-		cacheObjectLocation:      map[string]string{},
+		newConnectionFn:     mockMinioConnectionFactory(errors.New("undefined"), nil),
+		cacheObjectLocation: map[string]string{},
 	}
 }

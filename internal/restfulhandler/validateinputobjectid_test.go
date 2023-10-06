@@ -1,4 +1,4 @@
-package gateway
+package restfulhandler
 
 import (
 	"math/rand"
@@ -28,10 +28,13 @@ func generatePositiveInt(minValue uint, maxValue uint) int {
 	return o
 }
 
-func TestValidateObjectID(t *testing.T) {
+func Test_validateObjectID(t *testing.T) {
 	type args struct {
 		id string
 	}
+
+	const alphanumericCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 	tests := []struct {
 		name    string
 		args    args
@@ -40,21 +43,21 @@ func TestValidateObjectID(t *testing.T) {
 		{
 			name: "shall be valid",
 			args: args{
-				randomStr("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", generatePositiveInt(1, 20)),
+				randomStr(alphanumericCharset, generatePositiveInt(1, 20)),
 			},
 			wantErr: false,
 		},
 		{
 			name: "shall be invalid: too long",
 			args: args{
-				randomStr("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", generatePositiveInt(50, 55)),
+				randomStr(alphanumericCharset, generatePositiveInt(50, 55)),
 			},
 			wantErr: true,
 		},
 		{
 			name: "shall be invalid: too short",
 			args: args{
-				randomStr("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", generatePositiveInt(0, 0)),
+				randomStr(alphanumericCharset, generatePositiveInt(0, 0)),
 			},
 			wantErr: true,
 		},
@@ -68,8 +71,8 @@ func TestValidateObjectID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateObjectID(tt.args.id); (err != nil) != tt.wantErr {
-				t.Errorf("ValidateObjectID() error = %v, wantErr %v", err, tt.wantErr)
+			if err := validateInputObjectID(tt.args.id); (err != nil) != tt.wantErr {
+				t.Errorf("validateInputObjectID() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
