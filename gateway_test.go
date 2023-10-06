@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
-		got, err := gateway.Read(context.TODO(), inputID)
+		got, _, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err != nil {
@@ -49,7 +48,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
-		got, err := gateway.Read(context.TODO(), inputID)
+		got, _, err := gateway.Read(context.TODO(), inputID)
 
 		want := io.NopCloser(storedDataReader)
 		// THEN
@@ -72,7 +71,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
-		_, err := gateway.Read(context.TODO(), inputID)
+		_, _, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil {
@@ -87,7 +86,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
-		_, err := gateway.Read(context.TODO(), inputID)
+		_, _, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil {
@@ -96,21 +95,22 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		}
 	})
 
-	t.Run(`shall return "not found" error`, func(t *testing.T) {
+	t.Run(`shall succeed without error, but return obj not exists`, func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Err: minio.ErrorResponse{StatusCode: http.StatusNotFound}})
+		gateway.newConnectionFn = mockMinioConnectionFactory(nil,
+			&mockMinioClient{Err: minio.ErrorResponse{StatusCode: http.StatusNotFound}})
 
 		// WHEN
-		_, err := gateway.Read(context.TODO(), inputID)
+		_, exists, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
-		if err == nil {
-			t.Errorf("error is expected")
+		if err != nil {
+			t.Errorf("error is not expected")
 			return
 		}
-		if err.(minio.ErrorResponse).StatusCode != http.StatusNotFound {
-			t.Errorf("not found error expected")
+		if exists {
+			t.Errorf("object is not expected to be found")
 			return
 		}
 	})
@@ -121,7 +121,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Err: errors.New("foo")})
 
 		// WHEN
-		_, err := gateway.Read(context.TODO(), inputID)
+		_, _, err := gateway.Read(context.TODO(), inputID)
 
 		// THEN
 		if err == nil || err.Error() != "foo" {
@@ -183,64 +183,6 @@ func TestReadWriterStickyAssignator_Write(t *testing.T) {
 
 }
 
-type mockDNSReader struct {
-	HostCnt          uint
-	CntListHostNames uint
-	Err              error
-	cache            map[string]string
-}
-
-func (m *mockDNSReader) ListHostNames(_ context.Context, prefix string) ([]string, error) {
-	m.CntListHostNames++
-	if m.Err != nil {
-		return nil, m.Err
-	}
-	l := m.HostCnt
-	if l == 0 {
-		l = 1
-	}
-	var o = make([]string, l)
-	m.cache = map[string]string{}
-	for i := range o {
-		id := strconv.Itoa(i)
-		o[i] = prefix + "-" + id
-		m.cache[o[i]] = "192.0.2." + id
-	}
-	return o, nil
-}
-
-func (m *mockDNSReader) ReadHostIP(_ context.Context, hostName string) (string, error) {
-	if m.Err != nil {
-		return "", m.Err
-	}
-
-	const defaultIP = "192.0.2.0"
-	if m.cache == nil {
-		return defaultIP, nil
-	}
-
-	ip, ok := m.cache[hostName]
-	if !ok {
-		return defaultIP, nil
-	}
-	return ip, nil
-}
-
-type mockCredentialsReader struct {
-	Err                          error
-	AccessKeyID, SecretAccessKey string
-
-	cntHit uint
-}
-
-func (m *mockCredentialsReader) ReadCredentials(_ context.Context, _ string) (string, string, error) {
-	m.cntHit++
-	if m.Err != nil {
-		return "", "", m.Err
-	}
-	return m.AccessKeyID, m.SecretAccessKey, nil
-}
-
 func mockMinioConnectionFactory(err error, rw minioConnectionPort) minioConnectionFactory {
 	return func(endpoint, accessKeyID, secretAccessKey string) (minioConnectionPort, error) {
 		if err != nil {
@@ -278,7 +220,9 @@ func (m *mockMinioClient) BucketExists(ctx context.Context, _ string) (bool, err
 	return m.Data != nil, nil
 }
 
-func (m *mockMinioClient) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, _ int64, _ minio.PutObjectOptions) (minio.UploadInfo, error) {
+func (m *mockMinioClient) PutObject(
+	ctx context.Context, bucketName, objectName string, reader io.Reader, _ int64, _ minio.PutObjectOptions,
+) (minio.UploadInfo, error) {
 	if m.Err != nil {
 		return minio.UploadInfo{}, m.Err
 	}
@@ -300,17 +244,30 @@ func (m *mockMinioClient) IsOnline() bool {
 	return true
 }
 
-func newMockGateway() Client {
-	return Client{
-		StorageHostPrefix: "myhost",
-		dnsReader: &mockDNSReader{
-			HostCnt: 3,
-		},
-		credentialsReader: &mockCredentialsReader{
+type mockClusterAccessDetailsReader struct {
+	err error
+}
+
+func (m mockClusterAccessDetailsReader) Read(_ context.Context, prefix string) (
+	map[string]MimioConnectionDetails, error,
+) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return map[string]MimioConnectionDetails{
+		prefix: {
+			IPAddress:       "192.0.2.10",
 			AccessKeyID:     "foo",
 			SecretAccessKey: "bar",
 		},
-		newConnectionFn:     mockMinioConnectionFactory(errors.New("undefined"), nil),
-		cacheObjectLocation: map[string]string{},
+	}, nil
+}
+
+func newMockGateway() Client {
+	return Client{
+		StorageHostPrefix:       "myhost",
+		connectionDetailsReader: &mockClusterAccessDetailsReader{},
+		newConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
+		cacheObjectLocation:     map[string]string{},
 	}
 }
