@@ -3,6 +3,7 @@ package minio
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -42,8 +43,18 @@ func (c *Client) Read(ctx context.Context, bucketName, objectName string) (io.Re
 }
 
 func (c *Client) Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error {
+	exists, err := c.BucketExists(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("cannot store the object: %w", err)
+	}
+	if !exists {
+		if err := c.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
+			return fmt.Errorf("cannot create bucket to store objects %w", err)
+		}
+	}
+
 	// TODO: find the way to identify the object size to optimize the process
-	_, err := c.PutObject(ctx, bucketName, objectName, reader, -1, minio.PutObjectOptions{})
+	_, err = c.PutObject(ctx, bucketName, objectName, reader, -1, minio.PutObjectOptions{})
 	return err
 }
 
