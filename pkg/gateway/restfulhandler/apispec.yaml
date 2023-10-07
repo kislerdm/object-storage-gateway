@@ -30,9 +30,21 @@ paths:
               format: binary
       responses:
         '201':
-          description: Created
+          description: Object created.
+        '400':
+          description: The request is missing the body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '422':
+          description: Provided Object ID is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         '500':
-          description: Server error
+          description: Server error.
           content:
             application/json:
               schema:
@@ -43,20 +55,26 @@ paths:
       summary: Read an object.
       responses:
         '200':
-          description: OK
+          description: OK.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         '404':
-          description: Not found error
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '422':
+          description: Provided Object ID is invalid.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         '500':
-          description: Server error
+          description: Server error.
           content:
             application/json:
               schema:
