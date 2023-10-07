@@ -10,15 +10,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-type minioClientAdapter struct {
-	*minio.Client
-}
-
-func (m minioClientAdapter) GetObject(ctx context.Context, bucketName string, objectName string, opts minio.GetObjectOptions) (io.ReadCloser, error) {
-	return m.GetObject(ctx, bucketName, objectName, opts)
-}
-
-func newMinioClientAdapter(ipAddress, accessKeyID, secretAccessKey string) (minioConnectionPort, error) {
+func newMinioAdapter(ipAddress, accessKeyID, secretAccessKey string) (minioPort, error) {
 	const defaultPort = "9000"
 	host := ipAddress + ":" + defaultPort
 	c, err := minio.New(host, &minio.Options{
@@ -30,7 +22,7 @@ func newMinioClientAdapter(ipAddress, accessKeyID, secretAccessKey string) (mini
 	if !c.IsOnline() {
 		return nil, errors.New("the storage node is offline")
 	}
-	return &minioClientAdapter{c}, nil
+	return &minioAdapter{c}, nil
 }
 
 // isNotFoundError defines if the Minion client's error indicated that the obj is not found.
@@ -41,4 +33,14 @@ func isNotFoundError(err error) bool {
 	default:
 		return false
 	}
+}
+
+type minioAdapter struct {
+	*minio.Client
+}
+
+func (m minioAdapter) ReadObject(
+	ctx context.Context, bucketName string, objectName string, opts minio.GetObjectOptions,
+) (io.ReadCloser, error) {
+	return m.GetObject(ctx, bucketName, objectName, opts)
 }

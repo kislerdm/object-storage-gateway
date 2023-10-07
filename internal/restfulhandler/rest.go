@@ -2,21 +2,20 @@ package restfulhandler
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 
-	gateway "github.com/kislerdm/minio-gateway"
+	"github.com/kislerdm/minio-gateway/internal/validator"
+	"github.com/kislerdm/minio-gateway/pkg/gateway"
 )
 
 const defaultPrefix = "/object"
 
 // New initialises new Gateway Restful API handler.
-func New(gateway *gateway.Client) *Handler {
+func New(gateway *gateway.Gateway) *Handler {
 	var defaultLogger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	return &Handler{
 		readWriter:        gateway,
@@ -41,7 +40,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	objectID := h.readObjectID(r.URL.Path)
-	if err := validateInputObjectID(objectID); err != nil {
+	if err := validator.ValidateInputObjectID(objectID); err != nil {
 		h.logError(r, http.StatusUnprocessableEntity, err.Error())
 		writeErrorMessage(w, http.StatusUnprocessableEntity, err.Error())
 		return
@@ -49,8 +48,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
+		// TODO: fix when the key does in fact exist, but the file is big
+		readCloser, found, err := h.Read(r.Context(), objectID)
 
-		data, found, err := h.Read(r.Context(), objectID)
+		// TODO: fix the error message: return 404 when storage bucket does not exist
 		if err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to read object")
@@ -63,11 +64,11 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		defer func() { _ = data.Close() }()
+		defer func() { _ = readCloser.Close() }()
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(w, data); err != nil {
+		if _, err := io.Copy(w, readCloser); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "server error")
 		}
@@ -75,7 +76,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodPut:
-
+		// TODO: fix upload of big files
 		if r.Body == nil {
 			h.logError(r, http.StatusBadRequest, "nil request body")
 			writeErrorMessage(w, http.StatusBadRequest, "failed to write: request body shall be provided")
@@ -135,16 +136,6 @@ func writeErrorMessage(w http.ResponseWriter, statusCode int, s string) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"error":"` + s + `"}`))
-}
-
-var regExpID = regexp.MustCompile("^[a-zA-Z0-9]{1,32}$")
-
-// validateInputObjectID validates the input object ID.
-func validateInputObjectID(id string) error {
-	if !regExpID.MatchString(id) {
-		return errors.New("id is not valid")
-	}
-	return nil
 }
 
 type readWriter interface {

@@ -8,100 +8,78 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	gateway "github.com/kislerdm/minio-gateway"
 )
 
-func NewClient() (*ClientAdapter, error) {
-	cl, err := client.NewClientWithOpts()
+func NewClient() (*Client, error) {
+	// TODO: add non-lazy initialisation to ensure that
+	//  the process runs as "inside" container and shares the network.
+	c, err := client.NewClientWithOpts()
 	if err != nil {
 		return nil, err
 	}
-
-	const defaultGWContainerIdentifier = "gateway-container"
-
-	gwContainers, err := cl.ContainerList(context.Background(), types.ContainerListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{
-			Key:   "name",
-			Value: defaultGWContainerIdentifier,
-		}),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(gwContainers) == 0 {
-		return nil, errors.New("the gateway docker container cannot be identified")
-	}
-
-	gwContainer := gwContainers[0]
-
-	info, err := cl.ContainerInspect(context.Background(), gwContainer.ID)
-
-	// Note that it's assumed that gateway network is transparent to all storage nodes
-	var referenceNetworkID string
-	for _, network := range info.NetworkSettings.Networks {
-		referenceNetworkID = network.IPAddress
-		break
-	}
-	if referenceNetworkID == "" {
-		referenceNetworkID = info.NetworkSettings.DefaultNetworkSettings.IPAddress
-	}
-
-	return &ClientAdapter{
-		referenceNetworkID: referenceNetworkID,
-		Client:             cl,
-	}, nil
+	return &Client{c}, err
 }
 
-type ClientAdapter struct {
-	referenceNetworkID string
-
+type Client struct {
 	*client.Client
 }
 
-func (c ClientAdapter) Read(ctx context.Context, nameIdentifier string) (map[string]gateway.MimioConnectionDetails, error) {
+func (c *Client) Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error) {
+	const statusOK = "running"
 	containers, err := c.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{
 			Key:   "name",
-			Value: nameIdentifier,
+			Value: instanceNameFilter,
 		}),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	o := map[string]gateway.MimioConnectionDetails{}
+	var o = make(map[string]struct{}, len(containers))
 	for _, container := range containers {
 		if container.State == statusOK {
-			id := container.ID
+			o[container.ID] = struct{}{}
+		}
+	}
+	return o, err
+}
 
-			info, err := c.ContainerInspect(ctx, id)
-			if err != nil {
-				return nil, err
-			}
+func (c *Client) Read(ctx context.Context, id string) (ipAddress, accessKeyID, secretAccessKey string, err error) {
+	info, err := c.ContainerInspect(ctx, id)
+	if err != nil {
+		return
+	}
 
-			connectionDetails := gateway.MimioConnectionDetails{}
-			for _, network := range info.NetworkSettings.Networks {
-				if network.NetworkID == c.referenceNetworkID {
-					connectionDetails.IPAddress = network.IPAddress
-				}
-			}
+	settings := info.NetworkSettings
+	if settings == nil {
+		err = errors.New("cannot find network configuration for the instance " + id)
+		return
+	}
 
-			if connectionDetails.IPAddress == "" {
-				return nil, errors.New("cannot find ip address of the node " + container.Names[0])
-			}
+	for _, network := range settings.Networks {
+		ipAddress = network.IPAddress
 
-			connectionDetails.AccessKeyID, connectionDetails.SecretAccessKey = readAccessCredentialsFromEnv(info.Config.Env)
-			o[id] = connectionDetails
+		// select the first ip
+		// TODO: identify the Gateway process and use it to select common network
+		if ipAddress != "" {
+			break
 		}
 	}
 
-	return nil, err
+	// fallback: if the docker process runs in the default network
+	if ipAddress == "" {
+		ipAddress = settings.DefaultNetworkSettings.IPAddress
+	}
+
+	accessKeyID, secretAccessKey = readAccessCredentialsFromEnv(info.Config.Env)
+
+	return
 }
 
 func readAccessCredentialsFromEnv(envVars []string) (accessKeyID, secretAccessKey string) {
 	for _, kvPair := range envVars {
-		// stop when credentials found
+		// stop scanning env variable when the credentials are found
 		if accessKeyID != "" && secretAccessKey != "" {
 			break
 		}
@@ -110,13 +88,11 @@ func readAccessCredentialsFromEnv(envVars []string) (accessKeyID, secretAccessKe
 
 		switch els[0] {
 		case "MINIO_SECRET_KEY":
-			accessKeyID = els[1]
-		case "MINIO_ACCESS_KEY":
 			secretAccessKey = els[1]
+		case "MINIO_ACCESS_KEY":
+			accessKeyID = els[1]
 		}
 	}
 
 	return
 }
-
-const statusOK = "running"

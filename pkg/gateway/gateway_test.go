@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/docker/api/types"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -22,7 +23,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 		gateway := newMockGateway()
 		gateway.cacheObjectLocation[inputID] = "myhost-0"
 		storedDataReader := strings.NewReader("foo")
-		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
+		gateway.connectionFactory = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
 		got, _, err := gateway.Read(context.TODO(), inputID)
@@ -45,7 +46,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 		storedDataReader := strings.NewReader("qux")
 		gateway := newMockGateway()
-		gateway.newConnectionFn = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
+		gateway.connectionFactory = mockMinioConnectionFactory(nil, &mockMinioClient{Data: storedDataReader})
 
 		// WHEN
 		got, _, err := gateway.Read(context.TODO(), inputID)
@@ -68,7 +69,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 
 		gateway := newMockGateway()
 		gateway.cacheObjectLocation[inputID] = "myhost-0"
-		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
+		gateway.connectionFactory = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
 		_, _, err := gateway.Read(context.TODO(), inputID)
@@ -83,7 +84,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 	t.Run("shall fail to get a connection to the node the object's location is not known", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.newConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
+		gateway.connectionFactory = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
 		_, _, err := gateway.Read(context.TODO(), inputID)
@@ -98,7 +99,7 @@ func TestReadWriterStickyAssignator_Read(t *testing.T) {
 	t.Run(`shall succeed without error, but return obj not exists`, func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.newConnectionFn = mockMinioConnectionFactory(nil,
+		gateway.connectionFactory = mockMinioConnectionFactory(nil,
 			&mockMinioClient{Err: minio.ErrorResponse{StatusCode: http.StatusNotFound}})
 
 		// WHEN
@@ -183,8 +184,8 @@ func TestReadWriterStickyAssignator_Write(t *testing.T) {
 
 }
 
-func mockMinioConnectionFactory(err error, rw minioConnectionPort) minioConnectionFactory {
-	return func(endpoint, accessKeyID, secretAccessKey string) (minioConnectionPort, error) {
+func mockMinioConnectionFactory(err error, rw minioPort) StorageConnectionFactory {
+	return func(endpoint, accessKeyID, secretAccessKey string) (minioPort, error) {
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +207,10 @@ func (m *mockMinioClient) GetObjectACL(_ context.Context, _, objectName string) 
 	}, nil
 }
 
-func (m *mockMinioClient) GetObject(ctx context.Context, _, _ string, _ minio.GetObjectOptions) (io.ReadCloser, error) {
+func (m *mockMinioClient) ReadObject(ctx context.Context, _, _ string, _ minio.GetObjectOptions) (
+	io.ReadCloser,
+	error,
+) {
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -244,8 +248,20 @@ func (m *mockMinioClient) IsOnline() bool {
 	return true
 }
 
-type mockClusterAccessDetailsReader struct {
+type mockDocker struct {
 	err error
+}
+
+func (m mockDocker) ContainerList(_ context.Context, _ types.ContainerListOptions) ([]types.Container, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+}
+
+func (m mockDocker) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 func (m mockClusterAccessDetailsReader) Read(_ context.Context, prefix string) (
@@ -263,11 +279,11 @@ func (m mockClusterAccessDetailsReader) Read(_ context.Context, prefix string) (
 	}, nil
 }
 
-func newMockGateway() Client {
-	return Client{
-		StorageHostPrefix:       "myhost",
-		connectionDetailsReader: &mockClusterAccessDetailsReader{},
-		newConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
+func newMockGateway() Gateway {
+	return Gateway{
+		StorageInstancesPrefix:  "myhost",
+		connectionDetailsReader: &mockDocker{},
+		connectionFactory:       mockMinioConnectionFactory(errors.New("undefined"), nil),
 		cacheObjectLocation:     map[string]string{},
 	}
 }

@@ -5,10 +5,15 @@ WORKDIR /mnt/homework
 COPY . .
 
 RUN go mod tidy && \
-    go build -o homework-object-storage .
+    go build -o gateway .
 
 FROM docker
 
-COPY --from=0 /mnt/homework/homework-object-storage /usr/local/bin/homework-object-storage
+COPY --from=0 /mnt/homework/gateway /usr/local/bin/gateway
 
-RUN apk add bash curl
+EXPOSE 3000
+
+ENV PORT 3000
+ENV STORAGE_INSTANCES_PREFIX amazin-object-storage
+
+ENTRYPOINT gateway

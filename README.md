@@ -1,25 +1,28 @@
-# Blob storage gateway
+# Minio Blob Storage Gateway
 
-The HTTP gateway to a cluster of Minio Object Storage instances.
+The codebase defines the `Gateway` to distribute Read and Write operations among the Minio Object Storage instances.
 
-## Endpoints
+## Roadmap
 
-The gateway supports two operations:
-- Object Write
-- Object Read
+- [ ] Release v0.0.1
+    - [ ] Add readme section about the module usage
+    - [ ] Add architecture diagram
+    - [ ] Update apispec.yaml
+    - [ ] Add github action to run tests upon push and PR
+    - [ ] Update changelog
+- [ ] Release v0.0.2
+  - [ ] Fix: add support for big files, >~10Mb
+  - [ ] Cache connections
+  - [ ] Refactor to simplify codebase
+- [ ] Add linter
 
-See the endpoints definition in the [spec file](apispec.yaml).
+## Gateway Deployed as Restful WebServer
 
-## Problems
+### Endpoints
 
-- [ ] How to implement sticky load balancing algorithm? 
-  - Caching: ObjectID -> nodeID
-  - Hash function
-- [ ] How to implement cluster rebalancing algorithm to ensure that objects writen to a node, will be read from it even 
-if an additional node was added to the cluster?
-- [ ] How to handle big objects over 10-32Mb?
+See the endpoints definition in the [spec file](internal/restfulhandler/apispec.yaml).
 
-## How to run
+## How to run 
 
 ### Prerequisites
 
@@ -28,15 +31,24 @@ if an additional node was added to the cluster?
 
 ### Requirements 
 
-- The Minio cluster and the gateway must be deployed to an environment with the Docker daemon
-- The cluster and the gateway must share the network
-- The gateway mush have access to the Docker socket `/var/run/docker.sock`
+- The Minio Cluster Instances and the Gateway must run as Docker processes
+- The Gateway must share the network with the Minio Cluster
+- The Gateway mush have access to the socket `/var/run/docker.sock` to communicate to the Docker daemon over HTTP
 
 Run to setup: 
 
 ```
 docker-compose up --build
 ```
+
+## Problems
+
+- [x] How to implement sticky load balancing algorithm?
+  - [x] In-memory caching: ObjectID -> nodeID
+  - Hash function
+- [x] How to implement cluster rebalancing algorithm to ensure that objects writen to a node, will be read from it even
+  if an additional node was added to the cluster? -> in-memory caching implemented
+- [ ] How to handle big objects over 10-32Mb?
 
 ## License
 
