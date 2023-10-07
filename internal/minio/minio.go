@@ -6,11 +6,12 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/kislerdm/minio-gateway/pkg/gateway"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-func NewClient(ipAddress, accessKeyID, secretAccessKey string) (*Client, error) {
+func NewClient(ipAddress, accessKeyID, secretAccessKey string) (gateway.StorageController, error) {
 	const defaultPort = "9000"
 	host := ipAddress + ":" + defaultPort
 	c, err := minio.New(host, &minio.Options{

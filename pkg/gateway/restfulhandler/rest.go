@@ -8,20 +8,25 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kislerdm/minio-gateway/internal/validator"
 	"github.com/kislerdm/minio-gateway/pkg/gateway"
 )
 
 const defaultPrefix = "/object"
 
-// New initialises new Gateway Restful API handler.
-func New(gateway *gateway.Gateway) *Handler {
+// FromConfig initialises new Gateway Restful API handler using the config.
+func FromConfig(cfg gateway.Config) (*Handler, error) {
+	gw, err := gateway.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	var defaultLogger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	return &Handler{
-		readWriter:        gateway,
+		readWriter:        gw,
 		commonRoutePrefix: defaultPrefix,
 		logger:            defaultLogger,
-	}
+	}, nil
 }
 
 // Handler Gateway Restful API handler.
@@ -40,7 +45,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	objectID := h.readObjectID(r.URL.Path)
-	if err := validator.ValidateInputObjectID(objectID); err != nil {
+	if err := validateInputObjectID(objectID); err != nil {
 		h.logError(r, http.StatusUnprocessableEntity, err.Error())
 		writeErrorMessage(w, http.StatusUnprocessableEntity, err.Error())
 		return

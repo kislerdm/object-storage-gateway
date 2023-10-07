@@ -20,7 +20,7 @@ The codebase defines the `Gateway` to distribute Read and Write operations among
 
 ### Endpoints
 
-See the endpoints definition in the [spec file](internal/restfulhandler/apispec.yaml).
+See the endpoints definition in the [spec file](pkg/gateway/restfulhandler/apispec.yaml).
 
 ## How to run 
 

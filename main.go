@@ -9,8 +9,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kislerdm/minio-gateway/internal/restfulhandler"
-	"github.com/kislerdm/minio-gateway/pkg/gateway/config"
+	"github.com/kislerdm/minio-gateway/internal/docker"
+	"github.com/kislerdm/minio-gateway/internal/minio"
+	"github.com/kislerdm/minio-gateway/pkg/gateway"
+	"github.com/kislerdm/minio-gateway/pkg/gateway/restfulhandler"
 )
 
 func main() {
@@ -24,15 +26,25 @@ func main() {
 		storagePrefix = v
 	}
 
-	gwConfig := config.Config{
-		StorageInstancesPrefix:  storagePrefix,
-		DefaultBucket:           "store",
-		InstancesFinder:         nil,
-		ConnectionDetailsReader: nil,
-		ConnectionFactory:       nil,
+	cl, err := docker.NewClient()
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	if err := http.ListenAndServe(":"+port, restfulhandler.New(gwConfig)); err != nil {
+	gwConfig := gateway.Config{
+		StorageInstancesPrefix:         storagePrefix,
+		DefaultBucket:                  "store",
+		StorageInstancesFinder:         cl,
+		StorageConnectionDetailsReader: cl,
+		NewStorageConnectionFn:         minio.NewClient,
+	}
+
+	gw, err := restfulhandler.FromConfig(gwConfig)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := http.ListenAndServe(":"+port, gw); err != nil {
 		log.Fatalln(err)
 	}
 }
