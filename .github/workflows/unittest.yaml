@@ -38,4 +38,4 @@ jobs:
         run: go mod download
 
       - name: Run unit tests
-        run: go test ./...
+        run: make tests

@@ -6,7 +6,8 @@ help: ## Prints help message.
 
 .PHONY: tests
 tests: ## Runs units tests.
-	@ go test -tags=unittest ./...
+	@ go test -coverprofile=.coverage.out -timeout=2m -tags=unittest -v ./...
+	@ go tool cover -func .coverage.out | tail -1 && rm .coverage.out
 
 URL := http://localhost:3000/object
 
