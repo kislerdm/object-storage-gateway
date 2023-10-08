@@ -173,24 +173,6 @@ The Gateway process can be configured using the environment variables listed in 
 | PORT                       | Port for the webserver to listen   | 3000                         |
 | LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
 
-## Problems/ToDo
-
-- [ ] How to handle big objects over 10-32Mb?
-    - Example 21Mb input is written as 11.5Mb. Potential reason: transport layer because the content-length is
-      indicated as
-
-```commandline
-{"time":"2023-10-08T00:02:44.207206884Z","level":"DEBUG","source":{"function":"github.com/kislerdm/minio-gateway/pkg/gateway/restfulhandler.Handler.ServeHTTP","file":"/app/pkg/gateway/restfulhandler/rest.go","line":49},"msg":"request","webserver":{"path":"/object/4","method":"PUT","content-length":12034212,"headers":"Accept=*/*,Content-Length=12034212,Content-Type=application/x-www-form-urlencoded,Expect=100-continue,User-Agent=curl/8.3.0"}}
-```
-
-Proposed Solution: use multi-form upload.
-
-- [ ] How to preserve formatting of text files?
-- [ ] How to ensure the files content is not corrupted? zip archives seem to be corrupt - mime type problem?
-- [ ] How to lock Write operation to avoid data duplication and uncertainty. Example. Two simultaneous write request
-  with the same ObjectID = 'foo'. The object with that ID was not present in the cluster before the requests. Without
-  the lock, two objects with the same ID may end up in two different nodes.
-
 ## License
 
 The codebase present in the repository is distributed under the [MIT license](LICENSE).
