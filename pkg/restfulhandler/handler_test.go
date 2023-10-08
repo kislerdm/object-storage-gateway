@@ -246,7 +246,7 @@ func TestHandler_ServeHTTP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := Handler{
-				readWriter:        tt.fields.readWriter,
+				rw:                tt.fields.readWriter,
 				commonRoutePrefix: tt.fields.commonRoutePrefix,
 				logger:            tt.fields.logger,
 			}

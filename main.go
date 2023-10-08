@@ -13,7 +13,7 @@ import (
 	"github.com/kislerdm/minio-gateway/internal/docker"
 	"github.com/kislerdm/minio-gateway/internal/minio"
 	"github.com/kislerdm/minio-gateway/pkg/gateway"
-	"github.com/kislerdm/minio-gateway/pkg/gateway/restfulhandler"
+	"github.com/kislerdm/minio-gateway/pkg/restfulhandler"
 )
 
 func main() {

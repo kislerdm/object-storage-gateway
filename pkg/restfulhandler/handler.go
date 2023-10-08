@@ -21,7 +21,7 @@ func FromConfig(cfg gateway.Config) (*Handler, error) {
 	}
 
 	o := &Handler{
-		readWriter:        gw,
+		rw:                gw,
 		commonRoutePrefix: defaultPrefix,
 		logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: false,
@@ -39,7 +39,7 @@ func FromConfig(cfg gateway.Config) (*Handler, error) {
 
 // Handler Gateway Restful API handler.
 type Handler struct {
-	readWriter
+	rw readWriter
 
 	commonRoutePrefix string
 	logger            *slog.Logger
@@ -69,7 +69,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		// TODO: fix when the key does in fact exist, but the file is big
-		readCloser, found, err := h.Read(r.Context(), objectID)
+		readCloser, found, err := h.rw.Read(r.Context(), objectID)
 
 		// TODO: fix the error message: return 404 when storage bucket does not exist
 		if err != nil {
@@ -105,7 +105,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		defer func() { _ = r.Body.Close() }()
 
-		if err := h.Write(r.Context(), objectID, r.Body); err != nil {
+		if err := h.rw.Write(r.Context(), objectID, r.Body); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to write object")
 			return
@@ -175,17 +175,8 @@ func writeErrorMessage(w http.ResponseWriter, statusCode int, s string) {
 	_, _ = w.Write([]byte(`{"error":"` + s + `"}`))
 }
 
+// reader defines the interface to store and retrieve data.
 type readWriter interface {
-	reader
-	writer
-}
-
-// reader defines the interface to retrieve data from the storage instance.
-type reader interface {
 	Read(ctx context.Context, id string) (readCloser io.ReadCloser, found bool, err error)
-}
-
-// writer defines the interface to store data to the storage instance.
-type writer interface {
 	Write(ctx context.Context, id string, reader io.Reader) error
 }
