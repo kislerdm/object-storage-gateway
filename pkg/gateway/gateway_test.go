@@ -291,28 +291,28 @@ func Test_pickStorageInstance(t *testing.T) {
 	tests := []struct {
 		name   string
 		args   args
-		wantId string
+		wantID string
 	}{
 		{
 			name: "nil input",
 			args: args{
 				storageInstanceIDs: nil,
 			},
-			wantId: "",
+			wantID: "",
 		},
 		{
 			name: "empty input",
 			args: args{
 				storageInstanceIDs: map[string]struct{}{},
 			},
-			wantId: "",
+			wantID: "",
 		},
 		{
 			name: "single instance",
 			args: args{
 				storageInstanceIDs: map[string]struct{}{"foo": {}},
 			},
-			wantId: "foo",
+			wantID: "foo",
 		},
 		{
 			name: `three instances - obj:"1"`,
@@ -321,7 +321,7 @@ func Test_pickStorageInstance(t *testing.T) {
 				objectID:           "1",
 			},
 			// 49 % 3 = 1
-			wantId: "baz",
+			wantID: "baz",
 		},
 		{
 			name: "three instances - obj:foo",
@@ -330,7 +330,7 @@ func Test_pickStorageInstance(t *testing.T) {
 				objectID:           "foo",
 			},
 			// 324 % 3 = 0
-			wantId: "bar",
+			wantID: "bar",
 		},
 		{
 			name: "three instances - obj:FoO0",
@@ -339,13 +339,13 @@ func Test_pickStorageInstance(t *testing.T) {
 				objectID:           "FoO0",
 			},
 			// 308 % 3 = 2
-			wantId: "foo",
+			wantID: "foo",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotId := pickStorageInstance(tt.args.storageInstanceIDs, tt.args.objectID); gotId != tt.wantId {
-				t.Errorf("pickStorageInstance() = %v, want %v", gotId, tt.wantId)
+			if gotID := pickStorageInstance(tt.args.storageInstanceIDs, tt.args.objectID); gotID != tt.wantID {
+				t.Errorf("pickStorageInstance() = %v, want %v", gotID, tt.wantID)
 			}
 		})
 	}
