@@ -2,17 +2,6 @@
 
 The codebase defines the `Gateway` to distribute Read and Write operations among the Minio Object Storage instances.
 
-## Roadmap
-
-- [ ] Release v0.0.1
-    - [x] Update apispec.yaml
-    - [x] Add github action to run tests upon push and PR
-    - [ ] Add architecture diagram
-- [ ] Release v0.0.2
-    - [ ] Fix: add support for big files, >~10Mb
-    - [ ] Cache connections
-    - [ ] Refactor to simplify codebase
-
 ## Module Design
 
 ```mermaid
@@ -183,7 +172,7 @@ The Gateway process can be configured using the environment variables listed in 
 |:---------------------------|:-----------------------------------|:-----------------------------|
 | STORAGE_INSTANCES_SELECTOR | Selector to identify storage nodes | "amazin-object-storage-node" |
 | PORT                       | Port for the webserver to listen   | 3000                         |
-| LOG_DEBUG                  |                                    | true                         |
+| LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
 
 ## Problems/ToDo
 
