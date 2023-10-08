@@ -133,11 +133,10 @@ func TestGateway_Read(t *testing.T) {
 }
 
 func TestGateway_Write(t *testing.T) {
-	t.Parallel()
-
 	const inputID = "obj"
 	inputData := strings.NewReader("data")
 
+	t.Parallel()
 	t.Run("shall overwrite existing object when its location was known already", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
@@ -181,7 +180,6 @@ func TestGateway_Write(t *testing.T) {
 			return
 		}
 	})
-
 }
 
 func mockMinioConnectionFactory(err error, rw StorageController) StorageConnectionFactory {
@@ -235,8 +233,8 @@ type mockStorageConnectionDetailsReader struct {
 func (m mockStorageConnectionDetailsReader) Read(_ context.Context, _ string) (
 	ipAddress, accessKeyID, secretAccessKey string, err error,
 ) {
-	if err != nil {
-		return "", "", "", err
+	if m.err != nil {
+		return "", "", "", m.err
 	}
 	return "192.0.2.10", "foo", "bar", nil
 }
@@ -244,7 +242,7 @@ func (m mockStorageConnectionDetailsReader) Read(_ context.Context, _ string) (
 func newMockGateway() *Gateway {
 	return &Gateway{
 		cfg: &Config{
-			StorageInstancesPrefix:         mockClusterPrefix,
+			StorageInstancesSelector:       mockClusterPrefix,
 			StorageInstancesFinder:         &mockStorageInstancesFinder{},
 			StorageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
 			NewStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),

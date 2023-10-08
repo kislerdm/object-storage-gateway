@@ -20,13 +20,21 @@ func FromConfig(cfg gateway.Config) (*Handler, error) {
 		return nil, err
 	}
 
-	var defaultLogger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
-	return &Handler{
+	o := &Handler{
 		readWriter:        gw,
 		commonRoutePrefix: defaultPrefix,
-		logger:            defaultLogger,
-	}, nil
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: false,
+			Level:     slog.LevelError,
+		})),
+	}
+
+	if cfg.Logger != nil {
+		o.logger = cfg.Logger
+	}
+	o.logger = o.logger.WithGroup("webserver")
+
+	return o, nil
 }
 
 // Handler Gateway Restful API handler.
@@ -38,6 +46,13 @@ type Handler struct {
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("request",
+		slog.String("path", r.URL.Path),
+		slog.String("method", r.Method),
+		slog.Int64("content-length", r.ContentLength),
+		slog.String("headers", concatHeaders(r.Header)),
+	)
+
 	if !h.knownRoute(r.URL.Path) {
 		h.logError(r, http.StatusBadRequest, "route not found")
 		writeErrorMessage(w, http.StatusBadRequest, "route cannot be handled")
@@ -106,6 +121,23 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func concatHeaders(headers http.Header) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	for k := range headers {
+		for _, v := range headers.Values(k) {
+			buf.WriteString(k)
+			buf.WriteString("=")
+			buf.WriteString(v)
+			buf.WriteString(",")
+		}
+	}
+	o := buf.String()
+	return o[:len(o)-1]
+}
+
 func (h Handler) logError(r *http.Request, statusCode int, msg string) {
 	h.logger.Error(msg,
 		slog.Int("code", statusCode),
@@ -138,8 +170,8 @@ func (h Handler) readObjectID(p string) string {
 }
 
 func writeErrorMessage(w http.ResponseWriter, statusCode int, s string) {
-	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 	_, _ = w.Write([]byte(`{"error":"` + s + `"}`))
 }
 

@@ -32,6 +32,10 @@ type Client struct {
 }
 
 func (c *Client) Read(ctx context.Context, bucketName, objectName string) (io.ReadCloser, bool, error) {
+	exists, _ := c.BucketExists(ctx, bucketName)
+	if !exists {
+		return nil, false, nil
+	}
 	reader, err := c.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		if isNotFoundError(err) {
@@ -48,7 +52,7 @@ func (c *Client) Write(ctx context.Context, bucketName, objectName string, reade
 		return fmt.Errorf("cannot store the object: %w", err)
 	}
 	if !exists {
-		if err := c.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
+		if err = c.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
 			return fmt.Errorf("cannot create bucket to store objects %w", err)
 		}
 	}
@@ -71,7 +75,7 @@ func (c *Client) Detected(ctx context.Context, bucketName, objectName string) (b
 
 // isNotFoundError defines if the Minion client's error indicated that the obj is not found.
 func isNotFoundError(err error) bool {
-	switch e := err.(type) {
+	switch e := err.(type) { //nolint:errorlint // no wrapped is expected
 	case minio.ErrorResponse:
 		return e.StatusCode == http.StatusNotFound
 	default:

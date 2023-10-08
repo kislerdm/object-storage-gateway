@@ -4,25 +4,41 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"math/rand"
+	"os"
 )
 
 // New initializes a Gateway using the Config.
 func New(cfg Config) (*Gateway, error) {
 	const defaultBucket = "store"
 
-	if cfg.DefaultBucket == "" {
-		cfg.DefaultBucket = defaultBucket
+	c := cfg
+	if c.DefaultBucket == "" {
+		c.DefaultBucket = defaultBucket
 	}
 
-	return &Gateway{
-		cfg:                 &cfg,
+	o := &Gateway{
+		cfg:                 &c,
 		cacheObjectLocation: map[string]string{},
-	}, nil
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelDebug,
+		})),
+	}
+
+	if c.Logger != nil {
+		o.logger = c.Logger
+	}
+	o.logger = o.logger.WithGroup("gw")
+
+	return o, nil
 }
 
 type Gateway struct {
 	cfg *Config
+
+	logger *slog.Logger
 
 	// TODO: add invalidation logic. Imagine that a node where an object was written is down.
 	//  Next time we try to write to it, the error will be returned,
@@ -47,10 +63,11 @@ func (s *Gateway) Read(ctx context.Context, id string) (dataReadCloser io.ReadCl
 		if err != nil {
 			return
 		}
+		s.logger.Debug("reading", slog.String("instanceID", instanceID))
 		return conn.Read(ctx, s.cfg.DefaultBucket, id)
 	}
 
-	instances, err := s.cfg.StorageInstancesFinder.Find(ctx, s.cfg.StorageInstancesPrefix)
+	instances, err := s.cfg.StorageInstancesFinder.Find(ctx, s.cfg.StorageInstancesSelector)
 	if err != nil {
 		return
 	}
@@ -61,11 +78,13 @@ func (s *Gateway) Read(ctx context.Context, id string) (dataReadCloser io.ReadCl
 	}
 
 	// go round-robin over all hosts and try to find requested object.
-	for instanceID, _ = range instances {
+	for instanceID = range instances {
 		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 		if err != nil {
 			return
 		}
+
+		s.logger.Debug("reading", slog.String("instanceID", instanceID))
 		dataReadCloser, found, err = conn.Read(ctx, s.cfg.DefaultBucket, id)
 		if found {
 			s.cacheObjectLocation[id] = instanceID
@@ -76,16 +95,20 @@ func (s *Gateway) Read(ctx context.Context, id string) (dataReadCloser io.ReadCl
 
 // Write writes object to the storage.
 func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error {
+	var err error
+	var conn StorageController
+
 	instanceID, ok := s.cacheObjectLocation[id]
 	if ok {
-		conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 		if err != nil {
 			return err
 		}
+		s.logger.Debug("writing", slog.String("instanceID", instanceID))
 		return conn.Write(ctx, s.cfg.DefaultBucket, id, reader)
 	}
 
-	instances, err := s.cfg.StorageInstancesFinder.Find(ctx, s.cfg.StorageInstancesPrefix)
+	instances, err := s.cfg.StorageInstancesFinder.Find(ctx, s.cfg.StorageInstancesSelector)
 	if err != nil {
 		return err
 	}
@@ -96,17 +119,19 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 
 	// go round-robin over all hosts to find if the object is stored to one of storage nodes
 	// it's required to ensure the "sticky"-condition: overwrite already existing object
-	for instanceID, _ = range instances {
-		conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+	for instanceID = range instances {
+		var found bool
+		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 		if err != nil {
 			return err
 		}
-		found, err := conn.Detected(ctx, s.cfg.DefaultBucket, id)
+		found, err = conn.Detected(ctx, s.cfg.DefaultBucket, id)
 		if err != nil {
 			return err
 		}
 		if found {
 			s.cacheObjectLocation[id] = instanceID
+			s.logger.Debug("writing", slog.String("instanceID", instanceID))
 			return conn.Write(ctx, s.cfg.DefaultBucket, id, reader)
 		}
 	}
@@ -114,7 +139,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 	// define the instance to store new object
 	instanceID = pickStorageInstance(instances, id)
 
-	conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+	conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 	if err != nil {
 		return err
 	}
@@ -122,7 +147,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 	if err := conn.Write(ctx, s.cfg.DefaultBucket, id, reader); err != nil {
 		return err
 	}
-
+	s.logger.Debug("writing", slog.String("instanceID", instanceID))
 	s.cacheObjectLocation[id] = instanceID
 	return nil
 }
@@ -139,7 +164,7 @@ func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (
 
 // pickStorageInstance randomly selects the storage instance.
 func pickStorageInstance(storageInstanceIDs map[string]struct{}, _ string) (id string) {
-	pick := rand.Intn(len(storageInstanceIDs))
+	pick := rand.Intn(len(storageInstanceIDs)) //nolint:gosec // skip for now
 	var i int
 	for id = range storageInstanceIDs {
 		if i == pick {

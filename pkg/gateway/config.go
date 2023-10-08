@@ -3,12 +3,13 @@ package gateway
 import (
 	"context"
 	"io"
+	"log/slog"
 )
 
 // Config defines Gateway configuration.
 type Config struct {
-	// StorageInstancesPrefix prefix which defines storage instances. It's used for service discovery.
-	StorageInstancesPrefix string
+	// StorageInstancesSelector selector to identify instances in the storage cluster.
+	StorageInstancesSelector string
 
 	// DefaultBucket bucket for RW operations.
 	DefaultBucket string
@@ -16,6 +17,7 @@ type Config struct {
 	StorageInstancesFinder         StorageInstancesFinder
 	StorageConnectionDetailsReader StorageConnectionDetailsReader
 	NewStorageConnectionFn         StorageConnectionFactory
+	Logger                         *slog.Logger
 }
 
 // StorageInstancesFinder defines the port to the "service discovery" controller.

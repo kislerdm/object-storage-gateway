@@ -45,16 +45,19 @@ func (c *Client) Find(ctx context.Context, instanceNameFilter string) (map[strin
 	return o, err
 }
 
-func (c *Client) Read(ctx context.Context, id string) (ipAddress, accessKeyID, secretAccessKey string, err error) {
+func (c *Client) Read(ctx context.Context, id string) (
+	ipAddress string, accessKeyID string, secretAccessKey string,
+	err error,
+) {
 	info, err := c.ContainerInspect(ctx, id)
 	if err != nil {
-		return
+		return "", "", "", err
 	}
 
 	settings := info.NetworkSettings
 	if settings == nil {
-		err = errors.New("cannot find network configuration for the instance " + id)
-		return
+		return "", "", "",
+			errors.New("cannot find network configuration for the instance " + id)
 	}
 
 	for _, network := range settings.Networks {
@@ -74,7 +77,7 @@ func (c *Client) Read(ctx context.Context, id string) (ipAddress, accessKeyID, s
 
 	accessKeyID, secretAccessKey = readAccessCredentialsFromEnv(info.Config.Env)
 
-	return
+	return ipAddress, accessKeyID, secretAccessKey, nil
 }
 
 func readAccessCredentialsFromEnv(envVars []string) (accessKeyID, secretAccessKey string) {
@@ -84,7 +87,8 @@ func readAccessCredentialsFromEnv(envVars []string) (accessKeyID, secretAccessKe
 			break
 		}
 
-		els := strings.SplitN(kvPair, "=", 2)
+		const cntElements = 2
+		els := strings.SplitN(kvPair, "=", cntElements)
 
 		switch els[0] {
 		case "MINIO_SECRET_KEY":

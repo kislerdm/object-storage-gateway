@@ -5,6 +5,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,9 +22,16 @@ func main() {
 		port = strconv.Itoa(v)
 	}
 
-	storagePrefix := "amazin-object-storage-node"
-	if v := os.Getenv("STORAGE_INSTANCES_PREFIX"); v != "" {
-		storagePrefix = v
+	storageInstanceSelector := "amazin-object-storage-node"
+	if v := os.Getenv("STORAGE_INSTANCES_SELECTOR"); v != "" {
+		storageInstanceSelector = v
+	}
+
+	debug, _ := strconv.ParseBool(os.Getenv("LOG_DEBUG"))
+
+	loggerLevel := slog.LevelError
+	if debug {
+		loggerLevel = slog.LevelDebug
 	}
 
 	cl, err := docker.NewClient()
@@ -32,11 +40,15 @@ func main() {
 	}
 
 	gwConfig := gateway.Config{
-		StorageInstancesPrefix:         storagePrefix,
+		StorageInstancesSelector:       storageInstanceSelector,
 		DefaultBucket:                  "store",
 		StorageInstancesFinder:         cl,
 		StorageConnectionDetailsReader: cl,
 		NewStorageConnectionFn:         minio.NewClient,
+		Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     loggerLevel,
+		})),
 	}
 
 	gw, err := restfulhandler.FromConfig(gwConfig)
@@ -44,7 +56,14 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if err := http.ListenAndServe(":"+port, gw); err != nil {
+	server := &http.Server{
+		Addr:         ":" + port,
+		ReadTimeout:  -1,
+		WriteTimeout: -1,
+		Handler:      gw,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalln(err)
 	}
 }
