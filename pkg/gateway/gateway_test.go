@@ -17,31 +17,7 @@ func TestGateway_Read(t *testing.T) {
 
 	const inputID = "obj"
 
-	t.Run("shall return data when the node with the object is known", func(t *testing.T) {
-		// GIVEN
-		gateway := newMockGateway()
-		gateway.cacheObjectLocation[inputID] = mockClusterPrefix + "-0"
-		storedDataReader := strings.NewReader("foo")
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil,
-			&mockStorageClient{dataReader: storedDataReader})
-
-		// WHEN
-		got, _, err := gateway.Read(context.TODO(), inputID)
-
-		// THEN
-		if err != nil {
-			t.Errorf("no error expected")
-			return
-		}
-
-		want := io.NopCloser(storedDataReader)
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("unexpected data output want: %#v, got: %#v", want, got)
-			return
-		}
-	})
-
-	t.Run("shall return data when the node with the object is not known", func(t *testing.T) {
+	t.Run("shall successfully return existing object", func(t *testing.T) {
 		// GIVEN
 
 		storedDataReader := strings.NewReader("qux")
@@ -65,24 +41,7 @@ func TestGateway_Read(t *testing.T) {
 		}
 	})
 
-	t.Run("shall fail to get a connection to the node with the object when its known", func(t *testing.T) {
-		// GIVEN
-
-		gateway := newMockGateway()
-		gateway.cacheObjectLocation[inputID] = "myhost-0"
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
-
-		// WHEN
-		_, _, err := gateway.Read(context.TODO(), inputID)
-
-		// THEN
-		if err == nil {
-			t.Errorf("error is expected")
-			return
-		}
-	})
-
-	t.Run("shall fail to get a connection to the node the object's location is not known", func(t *testing.T) {
+	t.Run("shall fail to establish connection to the node", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
 		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
@@ -97,7 +56,7 @@ func TestGateway_Read(t *testing.T) {
 		}
 	})
 
-	t.Run(`shall succeed, but find no found`, func(t *testing.T) {
+	t.Run(`shall successfully return the status "not found"`, func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
 		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
@@ -116,7 +75,7 @@ func TestGateway_Read(t *testing.T) {
 		}
 	})
 
-	t.Run(`shall fail to read object`, func(t *testing.T) {
+	t.Run("shall fail to read the object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
 		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil,
@@ -138,22 +97,7 @@ func TestGateway_Write(t *testing.T) {
 	inputData := strings.NewReader("data")
 
 	t.Parallel()
-	t.Run("shall overwrite existing object when its location was known already", func(t *testing.T) {
-		// GIVEN
-		gateway := newMockGateway()
-		gateway.cacheObjectLocation[inputID] = "myhost-0"
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
-
-		// WHEN
-		err := gateway.Write(context.TODO(), inputID, inputData)
-
-		// THEN
-		if err != nil {
-			t.Errorf("no error expected")
-			return
-		}
-	})
-	t.Run("shall overwrite existing object when its location was not known", func(t *testing.T) {
+	t.Run("shall successfully overwrite existing object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
 		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{dataReader: inputData})
@@ -167,7 +111,7 @@ func TestGateway_Write(t *testing.T) {
 			return
 		}
 	})
-	t.Run("shall write the object which is not present in the storage cluster yet", func(t *testing.T) {
+	t.Run("shall successfully create the object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
 		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
@@ -248,7 +192,6 @@ func newMockGateway() *Gateway {
 			StorageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
 			NewStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
 		},
-		logger:              slog.Default(),
-		cacheObjectLocation: map[string]string{},
+		logger: slog.Default(),
 	}
 }
