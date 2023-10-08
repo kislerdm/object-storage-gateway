@@ -8,12 +8,10 @@ The codebase defines the `Gateway` to distribute Read and Write operations among
     - [x] Update apispec.yaml
     - [x] Add github action to run tests upon push and PR
     - [ ] Add architecture diagram
-    - [ ] Update changelog
 - [ ] Release v0.0.2
     - [ ] Fix: add support for big files, >~10Mb
     - [ ] Cache connections
     - [ ] Refactor to simplify codebase
-- [ ] Add linter
 
 ## Gateway Deployed as Restful HTTP WebServer
 
@@ -40,6 +38,38 @@ Run to provision a setup with three Minio instance and a Gateway instance:
 docker-compose up --build
 ```
 
+## Commands
+
+_Requires_ gnuMake/cmake
+
+- See help:
+
+```commandline
+make help
+```
+
+- Run unit tests:
+
+```commandline
+make tests
+```
+
+- Run e2e tests:
+
+```commandline
+make e2etests
+```
+
+**Note**: the command requires `curl` and `wc`.
+
+- Run linters:
+
+```commandline
+make lint
+```
+
+**Note**: the command requires `Docker`.
+
 ## Env Variables Configurations
 
 The Gateway process can be configured using the environment variables listed in the table.
@@ -53,12 +83,15 @@ The Gateway process can be configured using the environment variables listed in 
 ## Problems/ToDo
 
 - [ ] How to handle big objects over 10-32Mb?
-  - Example 21Mb input is written as 11.5Mb. Potential reason: transport layer because the content-length is 
-    indicated as
+    - Example 21Mb input is written as 11.5Mb. Potential reason: transport layer because the content-length is
+      indicated as
+
 ```commandline
 {"time":"2023-10-08T00:02:44.207206884Z","level":"DEBUG","source":{"function":"github.com/kislerdm/minio-gateway/pkg/gateway/restfulhandler.Handler.ServeHTTP","file":"/app/pkg/gateway/restfulhandler/rest.go","line":49},"msg":"request","webserver":{"path":"/object/4","method":"PUT","content-length":12034212,"headers":"Accept=*/*,Content-Length=12034212,Content-Type=application/x-www-form-urlencoded,Expect=100-continue,User-Agent=curl/8.3.0"}}
 ```
-  Proposed Solution: use multi-form upload.
+
+Proposed Solution: use multi-form upload.
+
 - [ ] How to preserve formatting of text files?
 - [ ] How to ensure the files content is not corrupted? zip archives seem to be corrupt - mime type problem?
 - [ ] How to lock Write operation to avoid data duplication and uncertainty. Example. Two simultaneous write request
