@@ -156,7 +156,7 @@ func (m *mockStorageClient) Write(_ context.Context, _, _ string, reader io.Read
 	return nil
 }
 
-func (m *mockStorageClient) Detected(ctx context.Context, bucketName, objectName string) (bool, error) {
+func (m *mockStorageClient) Detected(_ context.Context, _, _ string) (bool, error) {
 	return m.dataReader != nil, m.err
 }
 
@@ -193,5 +193,160 @@ func newMockGateway() *Gateway {
 			NewStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
 		},
 		logger: slog.Default(),
+	}
+}
+
+func Test_readSortedMapKeys(t *testing.T) {
+	type args struct {
+		m map[string]struct{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "1 element",
+			args: args{
+				m: map[string]struct{}{"foo": {}},
+			},
+			want: []string{"foo"},
+		},
+		{
+			name: "3 elements",
+			args: args{
+				m: map[string]struct{}{"foo": {}, "baz": {}, "bar": {}},
+			},
+			want: []string{"bar", "baz", "foo"},
+		},
+		{
+			name: "empty",
+			args: args{
+				m: map[string]struct{}{},
+			},
+			want: []string{},
+		},
+		{
+			name: "nil input",
+			args: args{
+				m: nil,
+			},
+			want: []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := readSortedMapKeys(tt.args.m); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("readMapKeys() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_hash(t *testing.T) {
+	type args struct {
+		id string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "1",
+			args: args{
+				id: "1",
+			},
+			want: 49,
+		},
+		{
+			name: "foo",
+			args: args{
+				id: "foo",
+			},
+			want: 324,
+		},
+		{
+			name: "FOo0",
+			args: args{
+				id: "FOo0",
+			},
+			want: 308,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hash(tt.args.id); got != tt.want {
+				t.Errorf("hash() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_pickStorageInstance(t *testing.T) {
+	type args struct {
+		storageInstanceIDs map[string]struct{}
+		objectID           string
+	}
+	tests := []struct {
+		name   string
+		args   args
+		wantId string
+	}{
+		{
+			name: "nil input",
+			args: args{
+				storageInstanceIDs: nil,
+			},
+			wantId: "",
+		},
+		{
+			name: "empty input",
+			args: args{
+				storageInstanceIDs: map[string]struct{}{},
+			},
+			wantId: "",
+		},
+		{
+			name: "single instance",
+			args: args{
+				storageInstanceIDs: map[string]struct{}{"foo": {}},
+			},
+			wantId: "foo",
+		},
+		{
+			name: `three instances - obj:"1"`,
+			args: args{
+				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				objectID:           "1",
+			},
+			// 49 % 3 = 1
+			wantId: "baz",
+		},
+		{
+			name: "three instances - obj:foo",
+			args: args{
+				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				objectID:           "foo",
+			},
+			// 324 % 3 = 0
+			wantId: "bar",
+		},
+		{
+			name: "three instances - obj:FoO0",
+			args: args{
+				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				objectID:           "FoO0",
+			},
+			// 308 % 3 = 2
+			wantId: "foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotId := pickStorageInstance(tt.args.storageInstanceIDs, tt.args.objectID); gotId != tt.wantId {
+				t.Errorf("pickStorageInstance() = %v, want %v", gotId, tt.wantId)
+			}
+		})
 	}
 }

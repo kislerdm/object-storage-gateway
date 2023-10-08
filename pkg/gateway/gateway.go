@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"math/rand"
 	"os"
+	"sort"
 )
 
 // New initializes a Gateway using the Config.
@@ -152,14 +152,37 @@ func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (
 }
 
 // pickStorageInstance randomly selects the storage instance.
-func pickStorageInstance(storageInstanceIDs map[string]struct{}, _ string) (id string) {
-	pick := rand.Intn(len(storageInstanceIDs)) //nolint:gosec // skip for now
+func pickStorageInstance(storageInstanceIDs map[string]struct{}, objectID string) (id string) {
+	if len(storageInstanceIDs) == 0 {
+		return ""
+	}
+
+	ids := readSortedMapKeys(storageInstanceIDs)
+
+	switch cntInstances := len(ids); cntInstances {
+	case 1:
+		return ids[0]
+	default:
+		idInx := hash(objectID) % cntInstances
+		return ids[idInx]
+	}
+}
+
+func hash(id string) int {
+	var o int32
+	for _, r := range id {
+		o += r
+	}
+	return int(o)
+}
+
+func readSortedMapKeys(m map[string]struct{}) []string {
+	var o = make([]string, len(m))
 	var i int
-	for id = range storageInstanceIDs {
-		if i == pick {
-			return
-		}
+	for k := range m {
+		o[i] = k
 		i++
 	}
-	return
+	sort.Strings(o)
+	return o
 }
