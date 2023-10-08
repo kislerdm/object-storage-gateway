@@ -96,23 +96,25 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 	// go round-robin over all hosts to find if the object is stored to one of storage nodes
 	// it's required to ensure the "sticky"-condition: overwrite already existing object
 	for instanceID := range instances {
-
 		s.logger.Debug("searching",
 			slog.String("operation", "write"),
 			slog.String("instanceID", instanceID),
 			slog.String("objectID", id),
 		)
 
-		conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+		var conn StorageController
+		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 		if err != nil {
 			return err
 		}
-		found, err := conn.Detected(ctx, s.cfg.DefaultBucket, id)
-		if err != nil {
-			return err
-		}
-		if found {
 
+		var found bool
+		found, err = conn.Detected(ctx, s.cfg.DefaultBucket, id)
+		if err != nil {
+			return err
+		}
+
+		if found {
 			s.logger.Debug("overwriting",
 				slog.String("operation", "write"),
 				slog.String("instanceID", instanceID),
@@ -141,7 +143,6 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 }
 
 func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (StorageController, error) {
-	// TODO: improve performance: cache connections
 	ipAddress, accessKeyID, secretAccessKey, err := s.cfg.StorageConnectionDetailsReader.Read(ctx, id)
 	if err != nil {
 		return nil, err
