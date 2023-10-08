@@ -1,0 +1,36 @@
+name: e2e-tests
+
+on:
+  pull_request:
+    paths:
+      - "**/**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "e2e-test/*"
+  push:
+    branches:
+      - master
+    paths:
+      - "**/**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "e2e-test/*"
+
+permissions:
+  contents: read
+  jobs:
+    unittests:
+      name: e2e-test
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: provision local env
+          run: docker compose up --build -d
+
+        - name: run e2e test
+          run: make e2etest
+
+        - name: stop containers
+          run: docker compose down
