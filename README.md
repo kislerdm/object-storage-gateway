@@ -1,4 +1,4 @@
-# Minio Blob Storage Gateway
+# Blob Storage Gateway
 
 The codebase defines the `Gateway` to distribute Read and Write operations among the Minio Object Storage instances.
 
@@ -13,11 +13,116 @@ The codebase defines the `Gateway` to distribute Read and Write operations among
     - [ ] Cache connections
     - [ ] Refactor to simplify codebase
 
+## Module Design
+
+```mermaid
+---
+title: The Gateway design diagram
+---
+classDiagram
+  class Gateway {
+    // pkg/gateway/gateway.go
+
+    -cfg                 *Config
+    -logger              *slog.Logger
+    -cacheObjectLocation map[string]string
+
+    +Read(ctx context.Context, id string) io.ReadCloser, bool, error
+    +Write(ctx context.Context, id string, reader io.Reader) error
+  }
+
+
+  class Config {
+    // pkg/gateway/config.go
+    +StorageInstancesSelector string
+    +DefaultBucket string
+    +StorageInstancesFinder         StorageInstancesFinder
+    +StorageConnectionDetailsReader StorageConnectionDetailsReader
+    +NewStorageConnectionFn         StorageConnectionFactory
+    +Logger                         *slog.Logger
+  }
+
+  class StorageConnectionDetailsReader {
+    // pkg/gateway/config.go
+    <<Interface>>
+    Read(ctx context.Context, id string) string, string, string, error
+  }
+
+  class StorageInstancesFinder {
+    // pkg/gateway/config.go
+    <<Interface>>
+    Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
+  }
+
+  class StorageController {
+    // pkg/gateway/config.go
+    <<interface>>
+    Read(ctx context.Context, bucketName, objectName string) io.ReadCloser, bool, error
+    Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
+    Detected(ctx context.Context, bucketName, objectName string) bool, error
+  }
+
+  class StorageConnectionFactory {
+    // pkg/gateway/config.go
+    <<interface>>
+    func(endpoint, accessKeyID, secretAccessKey string) StorageController, error
+  }
+
+  class Handler {
+    // pkg/restfulhandler/handler.go
+    -rw                readWriter
+    -commonRoutePrefix string
+    -logger            *slog.Logger
+    +ServeHTTP(w http.ResponseWriter, r *http.Request)
+    -logError(r *http.Request, statusCode int, msg string)
+    -knownRoute(p string) bool
+    -readObjectID(p string) string
+  }
+
+  class readWriter {
+    // pkg/restfulhandler/handler.go
+    <<interface>>
+    +Read()
+    +Write()
+  }
+
+  class dockerClient {
+// internal/docker/docker.go
+*"github.com/docker/docker".Client
+}
+
+class minioClient {
+// internal/minio/minio.go
+*"github.com/minio/minio-go/v7".Client
+}
+
+class NewClient {
+// internal/minio/minio.go
+func "internal/minio.NewClient"
+    }
+
+StorageConnectionFactory "1" --> "*" StorageController
+
+minioClient --|> StorageController
+dockerClient --|> StorageConnectionDetailsReader
+dockerClient --|> StorageInstancesFinder
+
+NewClient --|>StorageConnectionFactory
+
+Config *--dockerClient
+Config *--NewClient
+
+Handler <|-- readWriter
+Gateway --|> readWriter
+Gateway *-- Config
+Handler *-- Config  : Logger
+```
+
 ## Gateway Deployed as Restful HTTP WebServer
 
 ### Endpoints
 
-See the endpoints definition in the [spec file](pkg/gateway/restfulhandler/apispec.yaml).
+See the endpoints definition in the [spec file](pkg/restfulhandler/apispec.yaml).
 
 ## How to run
 
