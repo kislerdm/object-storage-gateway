@@ -16,6 +16,7 @@ if [ $(diff "${PWD}/e2e-test/tinytextfile.txt-got" "${PWD}/e2e-test/tinytextfile
   rm "${PWD}/e2e-test/tinytextfile.txt-got"
   exit 1
 fi
+
 echo OK
 
 rm "${PWD}/e2e-test/tinytextfile.txt-got"
