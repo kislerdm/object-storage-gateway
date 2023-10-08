@@ -4,10 +4,11 @@ services:
   amazin-object-storage-node-1: &object-storage-node
     image: minio/minio
     command: server --console-address ":9001" /tmp/data
-    ports: [ "9001:9001" ] # You can open localhost:9001 in your browser to debug what objects are on this node.
+    ports:
+      - "9001:9001"
+      - "9000:9000"
     networks:
       amazin-object-storage:
-        # Don't copy those addresses in your application. Use the local docker socket to get them.
         ipv4_address: 169.253.0.2
     environment:
       # Same for the environment variables, use the local docker socket to read it.
@@ -34,15 +35,21 @@ services:
       - MINIO_ACCESS_KEY=rendezvous
       - MINIO_SECRET_KEY=bluegreen
 
-  gateway-container: # Here, this is where you can configure your gateway.
-    build: .
-    command: sleep 7200
+  gateway-container:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: object-storage-gateway
     ports: [ "3000:3000" ]
     networks:
       amazin-object-storage:
         ipv4_address: 169.253.0.5
+    environment:
+      PORT: "3000"
+      STORAGE_INSTANCES_PREFIX: "amazin-object-storage-node"
+      LOG_DEBUG: "true"
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   amazin-object-storage:

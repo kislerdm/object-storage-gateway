@@ -5,10 +5,18 @@ WORKDIR /mnt/homework
 COPY . .
 
 RUN go mod tidy && \
-    go build -o homework-object-storage .
+    CGO_ENABLED=0 go build -ldflags="-w -s" -o gateway .
 
 FROM docker
 
-COPY --from=0 /mnt/homework/homework-object-storage /usr/local/bin/homework-object-storage
+FROM scratch
 
-RUN apk add bash curl
+COPY --from=0 /mnt/homework/gateway /usr/local/bin/gateway
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV STORAGE_INSTANCES_PREFIX amazin-object-storage
+ENV LOG_DEBUG true
+
+ENTRYPOINT [ "gateway" ]

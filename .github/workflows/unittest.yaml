@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  pull_request:
+    paths:
+      - "**/**/*.go"
+      - "go.mod"
+      - "go.sum"
+  push:
+    branches:
+      - master
+    paths:
+      - "**/**/*.go"
+      - "go.mod"
+      - "go.sum"
+
+permissions:
+  contents: read
+
+jobs:
+  unittests:
+    name: unittests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+
+      - name: Check formatting using gofmt
+        run: gofmt -s -l -d .
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: make tests

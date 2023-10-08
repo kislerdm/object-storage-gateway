@@ -2,27 +2,39 @@ package restfulhandler
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 
-	gateway "github.com/kislerdm/minio-gateway"
+	"github.com/kislerdm/minio-gateway/pkg/gateway"
 )
 
 const defaultPrefix = "/object"
 
-// New initialises new Gateway Restful API handler.
-func New(gateway *gateway.Client) *Handler {
-	var defaultLogger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	return &Handler{
-		readWriter:        gateway,
-		commonRoutePrefix: defaultPrefix,
-		logger:            defaultLogger,
+// FromConfig initialises new Gateway Restful API handler using the config.
+func FromConfig(cfg gateway.Config) (*Handler, error) {
+	gw, err := gateway.New(cfg)
+	if err != nil {
+		return nil, err
 	}
+
+	o := &Handler{
+		readWriter:        gw,
+		commonRoutePrefix: defaultPrefix,
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: false,
+			Level:     slog.LevelError,
+		})),
+	}
+
+	if cfg.Logger != nil {
+		o.logger = cfg.Logger
+	}
+	o.logger = o.logger.WithGroup("webserver")
+
+	return o, nil
 }
 
 // Handler Gateway Restful API handler.
@@ -34,6 +46,13 @@ type Handler struct {
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("request",
+		slog.String("path", r.URL.Path),
+		slog.String("method", r.Method),
+		slog.Int64("content-length", r.ContentLength),
+		slog.String("headers", concatHeaders(r.Header)),
+	)
+
 	if !h.knownRoute(r.URL.Path) {
 		h.logError(r, http.StatusBadRequest, "route not found")
 		writeErrorMessage(w, http.StatusBadRequest, "route cannot be handled")
@@ -49,8 +68,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
+		// TODO: fix when the key does in fact exist, but the file is big
+		readCloser, found, err := h.Read(r.Context(), objectID)
 
-		data, found, err := h.Read(r.Context(), objectID)
+		// TODO: fix the error message: return 404 when storage bucket does not exist
 		if err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to read object")
@@ -63,11 +84,11 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		defer func() { _ = data.Close() }()
+		defer func() { _ = readCloser.Close() }()
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(w, data); err != nil {
+		if _, err := io.Copy(w, readCloser); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "server error")
 		}
@@ -75,7 +96,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodPut:
-
+		// TODO: fix upload of big files
 		if r.Body == nil {
 			h.logError(r, http.StatusBadRequest, "nil request body")
 			writeErrorMessage(w, http.StatusBadRequest, "failed to write: request body shall be provided")
@@ -98,6 +119,23 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErrorMessage(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+}
+
+func concatHeaders(headers http.Header) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	for k := range headers {
+		for _, v := range headers.Values(k) {
+			buf.WriteString(k)
+			buf.WriteString("=")
+			buf.WriteString(v)
+			buf.WriteString(",")
+		}
+	}
+	o := buf.String()
+	return o[:len(o)-1]
 }
 
 func (h Handler) logError(r *http.Request, statusCode int, msg string) {
@@ -132,19 +170,9 @@ func (h Handler) readObjectID(p string) string {
 }
 
 func writeErrorMessage(w http.ResponseWriter, statusCode int, s string) {
-	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 	_, _ = w.Write([]byte(`{"error":"` + s + `"}`))
-}
-
-var regExpID = regexp.MustCompile("^[a-zA-Z0-9]{1,32}$")
-
-// validateInputObjectID validates the input object ID.
-func validateInputObjectID(id string) error {
-	if !regExpID.MatchString(id) {
-		return errors.New("id is not valid")
-	}
-	return nil
 }
 
 type readWriter interface {
