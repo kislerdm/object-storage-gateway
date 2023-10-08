@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
@@ -247,6 +248,7 @@ func newMockGateway() *Gateway {
 			StorageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
 			NewStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
 		},
+		logger:              slog.Default(),
 		cacheObjectLocation: map[string]string{},
 	}
 }
