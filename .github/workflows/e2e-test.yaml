@@ -18,19 +18,20 @@ on:
 
 permissions:
   contents: read
-  jobs:
-    unittests:
-      name: e2e-test
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-        - name: provision local env
-          run: docker compose up --build -d
 
-        - name: run e2e test
-          run: make e2etest
+jobs:
+  e2e-tests:
+    name: e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: provision local env
+        run: docker compose up --build -d
 
-        - name: stop containers
-          run: docker compose down
+      - name: run e2e test
+        run: make e2etest
+
+      - name: stop containers
+        run: docker compose down
