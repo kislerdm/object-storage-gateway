@@ -7,8 +7,6 @@ COPY . .
 RUN go mod tidy && \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o gateway .
 
-FROM docker
-
 FROM scratch
 
 COPY --from=0 /mnt/homework/gateway /usr/local/bin/gateway
