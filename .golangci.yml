@@ -1,0 +1,106 @@
+run:
+  timeout: 1m
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+
+  exhaustive:
+    check:
+      - switch
+      - map
+
+  funlen:
+    lines: 120
+    statements: 50
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # rule is too strict
+
+  nolintlint:
+    require-explanation: true
+    require-specific: true
+
+  cyclop:
+    max-complexity: 12
+    skip-tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - cyclop
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - execinquery
+    - exhaustive
+    - exportloopref
+    # - forbidigo # Disabling for now until we introduce structured logging
+    - funlen
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - loggercheck
+    - makezero
+    - mirror
+    - musttag
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - tenv
+    - testableexamples
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - cyclop
+        - errcheck
+        - dupl
+        - gosec
+        - nonamedreturns
+        - errcheck
+        - revive
+        - tparallel
+        - funlen
