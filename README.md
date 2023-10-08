@@ -9,73 +9,72 @@ The codebase defines the `Gateway` to distribute Read and Write operations among
 title: The Gateway design diagram
 ---
 classDiagram
-  class Gateway {
-    // pkg/gateway/gateway.go
+    class Gateway {
+        // pkg/gateway/gateway.go
 
-    -cfg                 *Config
-    -logger              *slog.Logger
-    -cacheObjectLocation map[string]string
+        -cfg                 *Config
+        -logger              *slog.Logger
 
-    +Read(ctx context.Context, id string) io.ReadCloser, bool, error
-    +Write(ctx context.Context, id string, reader io.Reader) error
-  }
+        +Read(ctx context.Context, id string) io.ReadCloser, bool, error
+        +Write(ctx context.Context, id string, reader io.Reader) error
+    }
 
 
-  class Config {
-    // pkg/gateway/config.go
-    +StorageInstancesSelector string
-    +DefaultBucket string
-    +StorageInstancesFinder         StorageInstancesFinder
-    +StorageConnectionDetailsReader StorageConnectionDetailsReader
-    +NewStorageConnectionFn         StorageConnectionFactory
-    +Logger                         *slog.Logger
-  }
+    class Config {
+        // pkg/gateway/config.go
+        +StorageInstancesSelector string
+        +DefaultBucket string
+        +StorageInstancesFinder StorageInstancesFinder
+        +StorageConnectionDetailsReader StorageConnectionDetailsReader
+        +NewStorageConnectionFn StorageConnectionFactory
+        +Logger                         *slog.Logger
+    }
 
-  class StorageConnectionDetailsReader {
-    // pkg/gateway/config.go
-    <<Interface>>
-    Read(ctx context.Context, id string) string, string, string, error
-  }
+    class StorageConnectionDetailsReader {
+        // pkg/gateway/config.go
+        <<Interface>>
+        Read(ctx context.Context, id string) string, string, string, error
+    }
 
-  class StorageInstancesFinder {
-    // pkg/gateway/config.go
-    <<Interface>>
-    Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
-  }
+    class StorageInstancesFinder {
+        // pkg/gateway/config.go
+        <<Interface>>
+        Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
+    }
 
-  class StorageController {
-    // pkg/gateway/config.go
-    <<interface>>
-    Read(ctx context.Context, bucketName, objectName string) io.ReadCloser, bool, error
-    Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
-    Detected(ctx context.Context, bucketName, objectName string) bool, error
-  }
+    class StorageController {
+        // pkg/gateway/config.go
+        <<interface>>
+        Read(ctx context.Context, bucketName, objectName string) io.ReadCloser, bool, error
+        Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
+        Detected(ctx context.Context, bucketName, objectName string) bool, error
+    }
 
-  class StorageConnectionFactory {
-    // pkg/gateway/config.go
-    <<interface>>
-    func(endpoint, accessKeyID, secretAccessKey string) StorageController, error
-  }
+    class StorageConnectionFactory {
+        // pkg/gateway/config.go
+        <<interface>>
+        func(endpoint, accessKeyID, secretAccessKey string) StorageController, error
+    }
 
-  class Handler {
-    // pkg/restfulhandler/handler.go
-    -rw                readWriter
-    -commonRoutePrefix string
-    -logger            *slog.Logger
-    +ServeHTTP(w http.ResponseWriter, r *http.Request)
-    -logError(r *http.Request, statusCode int, msg string)
-    -knownRoute(p string) bool
-    -readObjectID(p string) string
-  }
+    class Handler {
+        // pkg/restfulhandler/handler.go
+        -rw readWriter
+        -commonRoutePrefix string
+        -logger            *slog.Logger
+        +ServeHTTP(w http.ResponseWriter, r *http.Request)
+        -logError(r *http.Request, statusCode int, msg string)
+        -knownRoute(p string) bool
+        -readObjectID(p string) string
+    }
 
-  class readWriter {
-    // pkg/restfulhandler/handler.go
-    <<interface>>
-    +Read()
-    +Write()
-  }
+    class readWriter {
+        // pkg/restfulhandler/handler.go
+        <<interface>>
+        +Read()
+        +Write()
+    }
 
-  class dockerClient {
+    class dockerClient {
 // internal/docker/docker.go
 *"github.com/docker/docker".Client
 }
@@ -87,10 +86,10 @@ class minioClient {
 
 class NewClient {
 // internal/minio/minio.go
-func "internal/minio.NewClient"
+func"internal/minio.NewClient"
     }
 
-StorageConnectionFactory "1" --> "*" StorageController
+StorageConnectionFactory"1"-->"*"StorageController
 
 minioClient --|> StorageController
 dockerClient --|> StorageConnectionDetailsReader
@@ -104,7 +103,7 @@ Config *--NewClient
 Handler <|-- readWriter
 Gateway --|> readWriter
 Gateway *-- Config
-Handler *-- Config  : Logger
+Handler *-- Config: Logger
 ```
 
 ## Gateway Deployed as Restful HTTP WebServer
@@ -198,3 +197,8 @@ The codebase present in the repository is distributed under the [MIT license](LI
 
 The images and graphical material is distributed under
 the [CC BY-NC-SA 4.0 DEED](https://creativecommons.org/licenses/by-nc-sa/4.0/) license.
+
+## Disclaimer
+
+The project was developed as a solution addressing the problem
+described [here](https://github.com/spacelift-io/homework-object-storage).
