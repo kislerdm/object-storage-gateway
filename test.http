@@ -1,7 +1,0 @@
-PUT localhost:3000/object/foo
-
-foo
-
-###
-
-GET localhost:3000/object/foo
