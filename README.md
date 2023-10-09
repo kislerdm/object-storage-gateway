@@ -2,6 +2,12 @@
 
 The codebase defines the `Gateway` to distribute Read and Write operations among the Minio Object Storage instances.
 
+### Shortcuts 
+
+* [How to run](#how-to-run)
+* [Demo](#demo)
+* [Useful Commands](#commands)
+
 ## Module Design
 
 ```mermaid
@@ -89,7 +95,7 @@ Gateway *--NewClient
 Handler <|-- Gateway
 ```
 
-## Gateway Deployed as Restful HTTP WebServer
+## Gateway Deployment as a WebServer
 
 ### Endpoints
 
@@ -114,6 +120,37 @@ Run to provision a setup with three Minio instance and a Gateway instance:
 docker-compose up --build
 ```
 
+### Env Variables Configurations
+
+The Gateway process can be configured using the environment variables listed in the table.
+
+| Variable Name              | Definition                         | Default                      |
+|:---------------------------|:-----------------------------------|:-----------------------------|
+| STORAGE_INSTANCES_SELECTOR | Selector to identify storage nodes | "amazin-object-storage-node" |
+| PORT                       | Port for the webserver to listen   | 3000                         |
+| LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
+
+## Demo
+
+_Given_ that the [setup](#how-to-run) succeeded,
+
+_when_ the end-to-end test [script](e2e-test/e2e-tests.sh) is executed,
+
+_then_ three round-trip upload+download tests are expected to succeed.
+
+The following tests files are used:
+- The text file with the dummy text "foo bar baz";
+- The `LICENSE` file from the OpenTofu v1.6.0-alpha1 release;
+- The [`tofu.zip` file](https://github.com/opentofu/opentofu/releases/download/v1.6.0-alpha1/tofu_1.6.0-alpha1_darwin_arm64.zip) from the OpenTofu v1.6.0-alpha1 release.
+
+Run the command to execute the tests:
+
+```commandline
+make e2etests
+```
+
+**Note**: the execution requires `bash`, `curl`, `wc`, `grep` and `diff`.  
+
 ## Commands
 
 _Requires_ gnuMake/cmake
@@ -130,14 +167,6 @@ make help
 make tests
 ```
 
-- Run e2e tests:
-
-```commandline
-make e2etests
-```
-
-**Note**: the command requires `curl` and `wc`.
-
 - Run linters:
 
 ```commandline
@@ -145,16 +174,6 @@ make lint
 ```
 
 **Note**: the command requires `Docker`.
-
-## Env Variables Configurations
-
-The Gateway process can be configured using the environment variables listed in the table.
-
-| Variable Name              | Definition                         | Default                      |
-|:---------------------------|:-----------------------------------|:-----------------------------|
-| STORAGE_INSTANCES_SELECTOR | Selector to identify storage nodes | "amazin-object-storage-node" |
-| PORT                       | Port for the webserver to listen   | 3000                         |
-| LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
 
 ## License
 
