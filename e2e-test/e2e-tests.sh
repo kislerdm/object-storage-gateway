@@ -26,8 +26,8 @@ if [ $? -gt 0 ]; then echo "error" && deleteSamples; exit 1; fi
 
 echo "Run tests"
 
-files=( tinytextfile.txt LICENSE tofu.zip tofu )
-objects=( tinytextfile LICENSE tofu tofu )
+files=( tinytextfile.txt LICENSE tofu.zip )
+objects=( tinytextfile LICENSE tofuzip )
 
 for i in "${!files[@]}"; do
 
@@ -35,10 +35,10 @@ for i in "${!files[@]}"; do
   objectID=${objects[$i]}
 
   echo "upload ${fileName} as objectID ${objectID}"
-  curl -T ${fileName} ${URL}/${objectID}
+  curl -s -T ${fileName} ${URL}/${objectID}
 
   echo "download ${objectID} to ./get/${fileName}"
-  curl -o ./get/${fileName} ${URL}/${objectID}
+  curl -s -o ./get/${fileName} ${URL}/${objectID}
 
   if [ "$(grep -e "error" ./get/${fileName} | wc -l)" -gt 0 ]; then
     echo "downloading error"
@@ -46,7 +46,7 @@ for i in "${!files[@]}"; do
     exit 1
   fi
 
-  echo "compare files"
+  echo "compare files. want: ${fileName}, got: ./get/${fileName}."
 
   if [ "$(diff "./get/${fileName}" "${fileName}" | wc -l)" -gt 0 ]; then
     echo "FAIL"
@@ -58,6 +58,6 @@ for i in "${!files[@]}"; do
 
 done
 
-#deleteSamples
+deleteSamples
 
-echo "Completed"
+echo "Successfully Completed"
