@@ -12,8 +12,9 @@ tests: ## Runs units tests.
 URL := http://localhost:3000/object
 
 .PHONY: e2etest
-e2etest: ## Runs e2e tests.
-	@./e2e-test/test_tinytextfile.sh
+e2etests: ## Runs e2e tests.
+	@ cd e2e-test && ./e2e-tests.sh
 
+.PHONY: lint
 lint: ## Runs golangci linters.
 	@ docker run -t --rm -v ${PWD}:/app -w /app golangci/golangci-lint:v1.54.2 golangci-lint run -v ./...
