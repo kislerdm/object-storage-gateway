@@ -84,23 +84,29 @@ func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, err
 			return nil, false, err
 		}
 
-		s.Logger.Debug("reading",
+		s.Logger.Debug("searching",
 			slog.String("operation", "read"),
 			slog.String("instanceID", instanceID),
 			slog.String("objectID", id),
 		)
 
-		dataReadCloser, found, err := conn.Read(ctx, s.storageBucket, id)
+		found, err := conn.Find(ctx, s.storageBucket, id)
 		if err != nil {
 			return nil, false, err
 		}
 
 		if found {
-			s.Logger.Debug("found",
+			s.Logger.Debug("reading",
 				slog.String("operation", "read"),
 				slog.String("instanceID", instanceID),
 				slog.String("objectID", id),
 			)
+
+			dataReadCloser, _, err := conn.Read(ctx, s.storageBucket, id)
+			if err != nil {
+				return nil, false, err
+			}
+
 			return dataReadCloser, found, nil
 		}
 	}
