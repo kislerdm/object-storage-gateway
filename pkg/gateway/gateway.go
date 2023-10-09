@@ -13,7 +13,7 @@ import (
 func New(
 	storageInstancesSelector string,
 	storageBucket string,
-	storageDiscoveryClient StorageConnectionFinder,
+	storageDiscoveryClient StorageConnectionReadFinder,
 	newStorageConnectionFn StorageConnectionFn,
 	logger *slog.Logger,
 ) (*Gateway, error) {
@@ -60,7 +60,7 @@ type Gateway struct {
 	// storageBucket  bucket for RW operations.
 	storageBucket string
 
-	storageDiscoveryClient StorageConnectionFinder
+	storageDiscoveryClient StorageConnectionReadFinder
 	newStorageConnectionFn StorageConnectionFn
 
 	Logger *slog.Logger
@@ -219,8 +219,8 @@ func readSortedMapKeys(m map[string]struct{}) []string {
 	return o
 }
 
-// StorageConnectionFinder defines the port for "service discovery".
-type StorageConnectionFinder interface {
+// StorageConnectionReadFinder defines the port for "service discovery".
+type StorageConnectionReadFinder interface {
 	// Find scans the "service discovery" records to find instances and return their IDs.
 	Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error)
 	// Read reads ip address and authentication details to connect to the instance.

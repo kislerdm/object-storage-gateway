@@ -112,7 +112,7 @@ classDiagram
       +Write(ctx context.Context, id string, reader io.Reader) error
   }
 
-  class StorageConnectionFinder {
+  class StorageConnectionReadFinder {
       // pkg/gateway/gateway.go
       <<Interface>>
       Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
@@ -153,7 +153,7 @@ classDiagram
   StorageConnectionFn "1" --> "N" ObjectReadWriteFinder
   
   minioClient --|> ObjectReadWriteFinder
-  dockerClient --|> StorageConnectionFinder
+  dockerClient --|> StorageConnectionReadFinder
   NewClient --|> StorageConnectionFn
   Gateway *-- dockerClient
   Gateway *-- NewClient
