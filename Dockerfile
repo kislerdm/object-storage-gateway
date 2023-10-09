@@ -4,7 +4,7 @@ WORKDIR /mnt/homework
 
 COPY . .
 
-RUN go mod tidy && \
+RUN go mod download && \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o gateway .
 
 FROM scratch
