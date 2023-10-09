@@ -172,15 +172,80 @@ Gateway *--NewClient
 Handler <|-- Gateway
 ```
 
-## Commands
+## How to extend
 
-_Requires_ gnuMake/cmake
+The gateway module can be extended to use different storage and "service discovery" backends:
 
-- See help:
+- a new service discovery client is required to implement the interface `StorageConnectionFinder`;
+- a new storage backed client is required to implement the interface `ObjectReadWriteFinder`.
 
-```commandline
-make help
+Find a code snippet example below.
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"log/slog"
+	"os"
+	"strings"
+
+	"github.com/kislerdm/minio-gateway/pkg/gateway"
+)
+
+func NewStorageConnection(ipAddress, accessKeyID, secretAccessKey string) (gateway.ObjectReadWriteFinder, error) {
+	panic("implement me")
+	// Definition of the logic to initialise your storage backend.
+}
+
+type myServiceDiscoveryClient struct {
+	// Attributes of your ServiceDiscoveryClient
+}
+
+func (m myServiceDiscoveryClient) Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error) {
+	panic("implement me")
+	// Definition of the logic to find storage instances.
+}
+
+func (m myServiceDiscoveryClient) Read(ctx context.Context, id string) (
+	ipAddress, accessKeyID, secretAccessKey string, err error,
+) {
+	panic("implement me")
+	// Definition of the logic to retrieve the details required to connected to the storage instance.
+}
+
+func main() {
+	const (
+		storageInstanceSelector = "my-storage-instance"
+		storageBucket           = "mybucket"
+	)
+
+	gw, err := gateway.New(storageInstanceSelector, storageBucket, &myServiceDiscoveryClient{}, NewStorageConnection,
+		slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true})),
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := gw.Write(context.Background(), "foo", strings.NewReader("bar")); err != nil {
+		log.Fatalln(err)
+	}
+}
 ```
+
+## How to contribute
+
+**Requirements**:
+
+- Go 1.21
+- Docker and docker compose
+- gnuMake/cmake
+
+1. Submit the GitHub issue with a bug report or feature request
+2. Open PR with a code proposal for the code modification, or extension. 
+
+Please make sure that the following commands succeed before pushing changes. 
 
 - Run unit tests:
 
@@ -193,8 +258,6 @@ make tests
 ```commandline
 make lint
 ```
-
-**Note**: the command execution requires `Docker`.
 
 ## License
 
