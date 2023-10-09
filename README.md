@@ -132,14 +132,14 @@ The Gateway process can be configured using the environment variables listed in 
 
 ## Demo
 
-_Given_ that the [setup](#how-to-run) succeeded,
+_Given_ that the local environment was [provisioned](#how-to-run) successfully,
 
-_when_ the end-to-end test [script](e2e-test/e2e-tests.sh) is executed,
+_when_ the [script](e2e-test/e2e-tests.sh) is executed,
 
-_then_ three round-trip upload+download tests are expected to succeed.
+_then_ three end-to-end/round-trip upload+download tests are expected to succeed.
 
-The following tests files are used:
-- The text file with the dummy text "foo bar baz";
+The following test files are used:
+- The text file with a dummy text sample "foo bar baz";
 - The `LICENSE` file from the OpenTofu v1.6.0-alpha1 release;
 - The [`tofu.zip` file](https://github.com/opentofu/opentofu/releases/download/v1.6.0-alpha1/tofu_1.6.0-alpha1_darwin_arm64.zip) from the OpenTofu v1.6.0-alpha1 release.
 
@@ -173,7 +173,7 @@ make tests
 make lint
 ```
 
-**Note**: the command requires `Docker`.
+**Note**: the command execution requires `Docker`.
 
 ## License
 
