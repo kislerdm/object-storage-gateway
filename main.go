@@ -12,8 +12,8 @@ import (
 
 	"github.com/kislerdm/minio-gateway/internal/docker"
 	"github.com/kislerdm/minio-gateway/internal/minio"
+	"github.com/kislerdm/minio-gateway/internal/restfulhandler"
 	"github.com/kislerdm/minio-gateway/pkg/gateway"
-	"github.com/kislerdm/minio-gateway/pkg/restfulhandler"
 )
 
 func main() {
@@ -39,19 +39,17 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	gwConfig := gateway.Config{
-		StorageInstancesSelector:       storageInstanceSelector,
-		DefaultBucket:                  "store",
-		StorageInstancesFinder:         cl,
-		StorageConnectionDetailsReader: cl,
-		NewStorageConnectionFn:         minio.NewClient,
-		Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	gw, err := gateway.New(storageInstanceSelector, "store", cl, cl, minio.NewClient,
+		slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: true,
 			Level:     loggerLevel,
 		})),
+	)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	gw, err := restfulhandler.FromConfig(gwConfig)
+	gwHandler, err := restfulhandler.New(gw)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -60,7 +58,7 @@ func main() {
 		Addr:         ":" + port,
 		ReadTimeout:  -1,
 		WriteTimeout: -1,
-		Handler:      gw,
+		Handler:      gwHandler,
 	}
 
 	if err := server.ListenAndServe(); err != nil {

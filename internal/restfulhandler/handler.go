@@ -13,13 +13,8 @@ import (
 
 const defaultPrefix = "/object"
 
-// FromConfig initialises new Gateway Restful API handler using the config.
-func FromConfig(cfg gateway.Config) (*Handler, error) {
-	gw, err := gateway.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-
+// New initialises new Gateway Restful API handler.
+func New(gw *gateway.Gateway) (*Handler, error) {
 	o := &Handler{
 		rw:                gw,
 		commonRoutePrefix: defaultPrefix,
@@ -29,8 +24,8 @@ func FromConfig(cfg gateway.Config) (*Handler, error) {
 		})),
 	}
 
-	if cfg.Logger != nil {
-		o.logger = cfg.Logger
+	if gw.Logger != nil {
+		o.logger = gw.Logger
 	}
 	o.logger = o.logger.WithGroup("webserver")
 
@@ -70,28 +65,26 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// TODO: fix when the key does in fact exist, but the file is big
 		readCloser, found, err := h.rw.Read(r.Context(), objectID)
-
-		// TODO: fix the error message: return 404 when storage bucket does not exist
 		if err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to read object")
 			return
 		}
 
-		if !found {
+		if !found || readCloser == nil {
 			h.logError(r, http.StatusNotFound, "object not found")
 			writeErrorMessage(w, http.StatusNotFound, "object not found")
 			return
 		}
 
-		defer func() { _ = readCloser.Close() }()
-
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
 		if _, err := io.Copy(w, readCloser); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
+			// TODO: fix
 			writeErrorMessage(w, http.StatusInternalServerError, "server error")
 		}
+		_ = readCloser.Close()
 
 		return
 

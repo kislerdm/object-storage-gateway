@@ -12,38 +12,31 @@ classDiagram
     class Gateway {
         // pkg/gateway/gateway.go
 
-        -cfg                 *Config
-        -logger              *slog.Logger
+        -storageInstancesSelector       string
+        -storageBucket                  string
+        -storageInstancesFinder         StorageInstancesFinder
+        -storageConnectionDetailsReader StorageConnectionDetailsReader
+        -newStorageConnectionFn         StorageConnectionFactory
+        +Logger              *slog.Logger
 
         +Read(ctx context.Context, id string) io.ReadCloser, bool, error
         +Write(ctx context.Context, id string, reader io.Reader) error
     }
 
-
-    class Config {
-        // pkg/gateway/config.go
-        +StorageInstancesSelector string
-        +DefaultBucket string
-        +StorageInstancesFinder StorageInstancesFinder
-        +StorageConnectionDetailsReader StorageConnectionDetailsReader
-        +NewStorageConnectionFn StorageConnectionFactory
-        +Logger                         *slog.Logger
-    }
-
     class StorageConnectionDetailsReader {
-        // pkg/gateway/config.go
+        // pkg/gateway/gateway.go
         <<Interface>>
         Read(ctx context.Context, id string) string, string, string, error
     }
 
     class StorageInstancesFinder {
-        // pkg/gateway/config.go
+        // pkg/gateway/gateway.go
         <<Interface>>
         Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
     }
 
     class StorageController {
-        // pkg/gateway/config.go
+        // pkg/gateway/gateway.go
         <<interface>>
         Read(ctx context.Context, bucketName, objectName string) io.ReadCloser, bool, error
         Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
@@ -51,13 +44,13 @@ classDiagram
     }
 
     class StorageConnectionFactory {
-        // pkg/gateway/config.go
+        // pkg/gateway/gateway.go
         <<interface>>
         func(endpoint, accessKeyID, secretAccessKey string) StorageController, error
     }
 
     class Handler {
-        // pkg/restfulhandler/handler.go
+        // internal/restfulhandler/handler.go
         -rw readWriter
         -commonRoutePrefix string
         -logger            *slog.Logger
@@ -65,13 +58,6 @@ classDiagram
         -logError(r *http.Request, statusCode int, msg string)
         -knownRoute(p string) bool
         -readObjectID(p string) string
-    }
-
-    class readWriter {
-        // pkg/restfulhandler/handler.go
-        <<interface>>
-        +Read()
-        +Write()
     }
 
     class dockerClient {
@@ -97,20 +83,17 @@ dockerClient --|> StorageInstancesFinder
 
 NewClient --|>StorageConnectionFactory
 
-Config *--dockerClient
-Config *--NewClient
+Gateway *--dockerClient
+Gateway *--NewClient
 
-Handler <|-- readWriter
-Gateway --|> readWriter
-Gateway *-- Config
-Handler *-- Config: Logger
+Handler <|-- Gateway
 ```
 
 ## Gateway Deployed as Restful HTTP WebServer
 
 ### Endpoints
 
-See the endpoints definition in the [spec file](pkg/restfulhandler/apispec.yaml).
+See the endpoints definition in the [spec file](internal/restfulhandler/apispec.yaml).
 
 ## How to run
 

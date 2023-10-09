@@ -22,7 +22,7 @@ func TestGateway_Read(t *testing.T) {
 
 		storedDataReader := strings.NewReader("qux")
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil,
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil,
 			&mockStorageClient{dataReader: storedDataReader})
 
 		// WHEN
@@ -44,7 +44,7 @@ func TestGateway_Read(t *testing.T) {
 	t.Run("shall fail to establish connection to the node", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(errors.New("error"), nil)
 
 		// WHEN
 		_, _, err := gateway.Read(context.TODO(), inputID)
@@ -59,7 +59,7 @@ func TestGateway_Read(t *testing.T) {
 	t.Run(`shall successfully return the status "not found"`, func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
 
 		// WHEN
 		_, exists, err := gateway.Read(context.TODO(), inputID)
@@ -78,7 +78,7 @@ func TestGateway_Read(t *testing.T) {
 	t.Run("shall fail to read the object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil,
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil,
 			&mockStorageClient{err: errors.New("foo")})
 
 		// WHEN
@@ -100,7 +100,7 @@ func TestGateway_Write(t *testing.T) {
 	t.Run("shall successfully overwrite existing object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{dataReader: inputData})
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{dataReader: inputData})
 
 		// WHEN
 		err := gateway.Write(context.TODO(), inputID, inputData)
@@ -114,7 +114,7 @@ func TestGateway_Write(t *testing.T) {
 	t.Run("shall successfully create the object", func(t *testing.T) {
 		// GIVEN
 		gateway := newMockGateway()
-		gateway.cfg.NewStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
+		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
 
 		// WHEN
 		err := gateway.Write(context.TODO(), inputID, inputData)
@@ -186,13 +186,11 @@ func (m mockStorageConnectionDetailsReader) Read(_ context.Context, _ string) (
 
 func newMockGateway() *Gateway {
 	return &Gateway{
-		cfg: &Config{
-			StorageInstancesSelector:       mockClusterPrefix,
-			StorageInstancesFinder:         &mockStorageInstancesFinder{},
-			StorageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
-			NewStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
-		},
-		logger: slog.Default(),
+		storageInstancesSelector:       mockClusterPrefix,
+		storageInstancesFinder:         &mockStorageInstancesFinder{},
+		storageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
+		newStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
+		Logger:                         slog.Default(),
 	}
 }
 
