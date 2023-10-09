@@ -1,5 +1,14 @@
 ## Unreleased
 
+### v0.0.4
+
+### Changed
+
+- Renamed the module to `github.com/kislerdm/object-storage-gateway`.
+- [BREAKING] Changed the `Gateway` interfaces definition.
+- Improved documentation.
+- Enhanced testing by introducing e2e tests which also serve to demo the application's capabilities. 
+
 ### v0.0.3
 
 ### Changed
