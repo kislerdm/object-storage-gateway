@@ -11,9 +11,8 @@ FROM scratch
 
 COPY --from=0 /mnt/homework/gateway /usr/local/bin/gateway
 
-EXPOSE 3000
+EXPOSE 8000
 
-ENV PORT 3000
 ENV STORAGE_INSTANCES_PREFIX amazin-object-storage
 ENV LOG_DEBUG true
 
