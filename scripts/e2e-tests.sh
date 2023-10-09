@@ -26,8 +26,8 @@ if [ $? -gt 0 ]; then echo "error" && deleteSamples; exit 1; fi
 
 echo "Run tests"
 
-files=( tinytextfile.txt LICENSE tofu.zip )
-objects=( tinytextfile LICENSE tofuzip )
+files=( tinytextfile.txt LICENSE tofu.zip tofu )
+objects=( tinytextfile LICENSE archive binary )
 
 for i in "${!files[@]}"; do
 
@@ -40,7 +40,7 @@ for i in "${!files[@]}"; do
   echo "download ${objectID} to ./get/${fileName}"
   curl -s -o ./get/${fileName} ${URL}/${objectID}
 
-  if [ "$(grep -e "error" ./get/${fileName} | wc -l)" -gt 0 ]; then
+  if [ "$(grep -e '{"error":' ./get/${fileName} | wc -l)" -gt 0 ]; then
     echo "downloading error"
     deleteSamples
     exit 1

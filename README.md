@@ -59,6 +59,7 @@ The following test files are used:
 - The `LICENSE` file from the OpenTofu v1.6.0-alpha1 release;
 - The [`tofu.zip` file](https://github.com/opentofu/opentofu/releases/download/v1.6.0-alpha1/tofu_1.6.0-alpha1_darwin_arm64.zip)
   from the OpenTofu v1.6.0-alpha1 release.
+- The `tofu` binary from the OpenTofu v1.6.0-alpha1 release.
 
 Run the command to execute the tests:
 
