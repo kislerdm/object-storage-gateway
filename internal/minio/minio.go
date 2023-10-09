@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/kislerdm/minio-gateway/pkg/gateway"
+	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

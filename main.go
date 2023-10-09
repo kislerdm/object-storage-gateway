@@ -10,10 +10,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kislerdm/minio-gateway/internal/docker"
-	"github.com/kislerdm/minio-gateway/internal/minio"
-	"github.com/kislerdm/minio-gateway/internal/restfulhandler"
-	"github.com/kislerdm/minio-gateway/pkg/gateway"
+	"github.com/kislerdm/object-storage-gateway/internal/docker"
+	"github.com/kislerdm/object-storage-gateway/internal/minio"
+	"github.com/kislerdm/object-storage-gateway/internal/restfulhandler"
+	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
 )
 
 func main() {

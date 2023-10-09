@@ -174,8 +174,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-
-	"github.com/kislerdm/minio-gateway/pkg/gateway"
+	
+	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
 )
 
 func NewStorageConnection(ipAddress, accessKeyID, secretAccessKey string) (gateway.ObjectReadWriteFinder, error) {

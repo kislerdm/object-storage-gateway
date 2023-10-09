@@ -1,4 +1,4 @@
-module github.com/kislerdm/minio-gateway
+module github.com/kislerdm/object-storage-gateway
 
 go 1.21
 

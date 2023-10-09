@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kislerdm/minio-gateway/pkg/gateway"
+	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
 )
 
 const defaultPrefix = "/object"
