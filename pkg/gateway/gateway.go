@@ -13,17 +13,12 @@ import (
 func New(
 	storageInstancesSelector string,
 	storageBucket string,
-	storageInstancesFinder StorageInstancesFinder,
-	storageConnectionDetailsReader StorageConnectionDetailsReader,
-	newStorageConnectionFn StorageConnectionFactory,
+	storageDiscoveryClient StorageConnectionFinder,
+	newStorageConnectionFn StorageConnectionFn,
 	logger *slog.Logger,
 ) (*Gateway, error) {
-	if storageInstancesFinder == nil {
-		return nil, errors.New("storageInstancesFinder must be not nil")
-	}
-
-	if storageConnectionDetailsReader == nil {
-		return nil, errors.New("storageConnectionDetailsReader must be not nil")
+	if storageDiscoveryClient == nil {
+		return nil, errors.New("storageDiscoveryClient must be not nil")
 	}
 
 	if newStorageConnectionFn == nil {
@@ -35,12 +30,11 @@ func New(
 	}
 
 	o := &Gateway{
-		storageInstancesSelector:       storageInstancesSelector,
-		storageBucket:                  storageBucket,
-		storageInstancesFinder:         storageInstancesFinder,
-		storageConnectionDetailsReader: storageConnectionDetailsReader,
-		newStorageConnectionFn:         newStorageConnectionFn,
-		Logger:                         logger,
+		storageInstancesSelector: storageInstancesSelector,
+		storageBucket:            storageBucket,
+		storageDiscoveryClient:   storageDiscoveryClient,
+		newStorageConnectionFn:   newStorageConnectionFn,
+		Logger:                   logger,
 	}
 
 	const defaultBucket = "store"
@@ -66,16 +60,15 @@ type Gateway struct {
 	// storageBucket  bucket for RW operations.
 	storageBucket string
 
-	storageInstancesFinder         StorageInstancesFinder
-	storageConnectionDetailsReader StorageConnectionDetailsReader
-	newStorageConnectionFn         StorageConnectionFactory
+	storageDiscoveryClient StorageConnectionFinder
+	newStorageConnectionFn StorageConnectionFn
 
 	Logger *slog.Logger
 }
 
 // Read reads the object given its ID.
 func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, error) {
-	instances, err := s.storageInstancesFinder.Find(ctx, s.storageInstancesSelector)
+	instances, err := s.storageDiscoveryClient.Find(ctx, s.storageInstancesSelector)
 	if err != nil {
 		return nil, false, err
 	}
@@ -117,7 +110,7 @@ func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, err
 
 // Write writes object to the storage.
 func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error {
-	instances, err := s.storageInstancesFinder.Find(ctx, s.storageInstancesSelector)
+	instances, err := s.storageDiscoveryClient.Find(ctx, s.storageInstancesSelector)
 	if err != nil {
 		return err
 	}
@@ -135,14 +128,14 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 			slog.String("objectID", id),
 		)
 
-		var conn StorageController
+		var conn ObjectReadWriteFinder
 		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
 		if err != nil {
 			return err
 		}
 
 		var found bool
-		found, err = conn.Detected(ctx, s.storageBucket, id)
+		found, err = conn.Find(ctx, s.storageBucket, id)
 		if err != nil {
 			return err
 		}
@@ -175,8 +168,8 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 	return conn.Write(ctx, s.storageBucket, id, reader)
 }
 
-func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (StorageController, error) {
-	ipAddress, accessKeyID, secretAccessKey, err := s.storageConnectionDetailsReader.Read(ctx, id)
+func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (ObjectReadWriteFinder, error) {
+	ipAddress, accessKeyID, secretAccessKey, err := s.storageDiscoveryClient.Read(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -220,29 +213,25 @@ func readSortedMapKeys(m map[string]struct{}) []string {
 	return o
 }
 
-// StorageInstancesFinder defines the port to the "service discovery" controller.
-type StorageInstancesFinder interface {
+// StorageConnectionFinder defines the port to the "service discovery".
+type StorageConnectionFinder interface {
 	// Find scans the "service discovery" records to find instances and return their IDs.
 	Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error)
-}
-
-// StorageConnectionDetailsReader defines the port to the "service discovery" controller.
-type StorageConnectionDetailsReader interface {
 	// Read reads ip address and authentication details to connect to the instance.
 	Read(ctx context.Context, id string) (ipAddress, accessKeyID, secretAccessKey string, err error)
 }
 
-// StorageController defines the port to the storage instance.
-type StorageController interface {
+// ObjectReadWriteFinder defines the port to the storage instance.
+type ObjectReadWriteFinder interface {
 	// Read reads the object.
 	Read(ctx context.Context, bucketName, objectName string) (io.ReadCloser, bool, error)
 
 	// Write writes the object.
 	Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
 
-	// Detected identifies if the object can be found in the instance.
-	Detected(ctx context.Context, bucketName, objectName string) (bool, error)
+	// Find identifies if the object can be found in the instance.
+	Find(ctx context.Context, bucketName, objectName string) (bool, error)
 }
 
-// StorageConnectionFactory defines the factory of StorageController.
-type StorageConnectionFactory func(endpoint, accessKeyID, secretAccessKey string) (StorageController, error)
+// StorageConnectionFn defines the factory of ObjectReadWriteFinder.
+type StorageConnectionFn func(endpoint, accessKeyID, secretAccessKey string) (ObjectReadWriteFinder, error)

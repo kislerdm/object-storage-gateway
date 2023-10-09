@@ -17,9 +17,9 @@ import (
 )
 
 func main() {
-	port := "3000"
-	if v, err := strconv.Atoi(os.Getenv("PORT")); err == nil && v > 1000 {
-		port = strconv.Itoa(v)
+	cl, err := docker.NewClient()
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	storageInstanceSelector := "amazin-object-storage-node"
@@ -34,12 +34,9 @@ func main() {
 		loggerLevel = slog.LevelDebug
 	}
 
-	cl, err := docker.NewClient()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	const storageBucket = "store"
 
-	gw, err := gateway.New(storageInstanceSelector, "store", cl, cl, minio.NewClient,
+	gw, err := gateway.New(storageInstanceSelector, storageBucket, cl, minio.NewClient,
 		slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: true,
 			Level:     loggerLevel,
@@ -52,6 +49,11 @@ func main() {
 	gwHandler, err := restfulhandler.New(gw)
 	if err != nil {
 		log.Fatalln(err)
+	}
+
+	port := "3000"
+	if v, err := strconv.Atoi(os.Getenv("PORT")); err == nil && v > 1000 {
+		port = strconv.Itoa(v)
 	}
 
 	server := &http.Server{

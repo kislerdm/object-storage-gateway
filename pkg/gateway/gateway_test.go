@@ -127,8 +127,8 @@ func TestGateway_Write(t *testing.T) {
 	})
 }
 
-func mockMinioConnectionFactory(err error, rw StorageController) StorageConnectionFactory {
-	return func(endpoint, accessKeyID, secretAccessKey string) (StorageController, error) {
+func mockMinioConnectionFactory(err error, rw ObjectReadWriteFinder) StorageConnectionFn {
+	return func(endpoint, accessKeyID, secretAccessKey string) (ObjectReadWriteFinder, error) {
 		if err != nil {
 			return nil, err
 		}
@@ -156,26 +156,22 @@ func (m *mockStorageClient) Write(_ context.Context, _, _ string, reader io.Read
 	return nil
 }
 
-func (m *mockStorageClient) Detected(_ context.Context, _, _ string) (bool, error) {
+func (m *mockStorageClient) Find(_ context.Context, _, _ string) (bool, error) {
 	return m.dataReader != nil, m.err
 }
 
-type mockStorageInstancesFinder struct {
+type mockStorageDiscoveryClient struct {
 	err error
 }
 
-func (m mockStorageInstancesFinder) Find(_ context.Context, instanceNameFilter string) (map[string]struct{}, error) {
+func (m mockStorageDiscoveryClient) Find(_ context.Context, instanceNameFilter string) (map[string]struct{}, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return map[string]struct{}{instanceNameFilter + "-0": {}}, nil
 }
 
-type mockStorageConnectionDetailsReader struct {
-	err error
-}
-
-func (m mockStorageConnectionDetailsReader) Read(_ context.Context, _ string) (
+func (m mockStorageDiscoveryClient) Read(_ context.Context, _ string) (
 	ipAddress, accessKeyID, secretAccessKey string, err error,
 ) {
 	if m.err != nil {
@@ -186,11 +182,10 @@ func (m mockStorageConnectionDetailsReader) Read(_ context.Context, _ string) (
 
 func newMockGateway() *Gateway {
 	return &Gateway{
-		storageInstancesSelector:       mockClusterPrefix,
-		storageInstancesFinder:         &mockStorageInstancesFinder{},
-		storageConnectionDetailsReader: &mockStorageConnectionDetailsReader{},
-		newStorageConnectionFn:         mockMinioConnectionFactory(errors.New("undefined"), nil),
-		Logger:                         slog.Default(),
+		storageInstancesSelector: mockClusterPrefix,
+		storageDiscoveryClient:   &mockStorageDiscoveryClient{},
+		newStorageConnectionFn:   mockMinioConnectionFactory(errors.New("undefined"), nil),
+		Logger:                   slog.Default(),
 	}
 }
 

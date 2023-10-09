@@ -12,7 +12,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-func NewClient(ipAddress, accessKeyID, secretAccessKey string) (gateway.StorageController, error) {
+func NewClient(ipAddress, accessKeyID, secretAccessKey string) (gateway.ObjectReadWriteFinder, error) {
 	const defaultPort = "9000"
 	host := ipAddress + ":" + defaultPort
 	c, err := minio.New(host, &minio.Options{
@@ -62,7 +62,7 @@ func (c *Client) Write(ctx context.Context, bucketName, objectName string, reade
 	return err
 }
 
-func (c *Client) Detected(ctx context.Context, bucketName, objectName string) (bool, error) {
+func (c *Client) Find(ctx context.Context, bucketName, objectName string) (bool, error) {
 	_, err := c.GetObjectACL(ctx, bucketName, objectName)
 	if err != nil {
 		if isNotFoundError(err) {
