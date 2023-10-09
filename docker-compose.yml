@@ -40,12 +40,11 @@ services:
       context: .
       dockerfile: Dockerfile
     image: object-storage-gateway
-    ports: [ "3000:3000" ]
+    ports: [ "3000:8000" ]
     networks:
       amazin-object-storage:
         ipv4_address: 169.253.0.5
     environment:
-      PORT: "3000"
       STORAGE_INSTANCES_PREFIX: "amazin-object-storage-node"
       LOG_DEBUG: "true"
     volumes:

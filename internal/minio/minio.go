@@ -57,7 +57,6 @@ func (c *Client) Write(ctx context.Context, bucketName, objectName string, reade
 		}
 	}
 
-	// TODO: find the way to identify the object size to optimize the process
 	_, err = c.PutObject(ctx, bucketName, objectName, reader, -1, minio.PutObjectOptions{})
 	return err
 }

@@ -63,7 +63,6 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		// TODO: fix when the key does in fact exist, but the file is big
 		readCloser, found, err := h.rw.Read(r.Context(), objectID)
 		if err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
@@ -79,17 +78,15 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
+		defer func() { _ = readCloser.Close() }()
 		if _, err := io.Copy(w, readCloser); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
-			// TODO: fix
 			writeErrorMessage(w, http.StatusInternalServerError, "server error")
 		}
-		_ = readCloser.Close()
 
 		return
 
 	case http.MethodPut:
-		// TODO: fix upload of big files
 		if r.Body == nil {
 			h.logError(r, http.StatusBadRequest, "nil request body")
 			writeErrorMessage(w, http.StatusBadRequest, "failed to write: request body shall be provided")
@@ -97,7 +94,6 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer func() { _ = r.Body.Close() }()
-
 		if err := h.rw.Write(r.Context(), objectID, r.Body); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to write object")

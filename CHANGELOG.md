@@ -1,5 +1,10 @@
 ## Unreleased
 
+### v0.0.5
+
+- [[#3](https://github.com/kislerdm/object-storage-gateway/issues/3)] Objects can be read after over-writing for various 
+  cluster sizes (tested with 0-4 instances).
+
 ### v0.0.4
 
 ### Changed
