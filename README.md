@@ -1,28 +1,105 @@
-# Blob Storage Gateway
+# Object storage gateway
 
-The codebase defines the `Gateway` to distribute Read and Write operations among the Minio Object Storage instances.
+The codebase defines the `sateway` to distribute Read and Write operations among the object storage instances.
 
-### Shortcuts 
+### Shortcuts
 
-* [How to run](#how-to-run)
 * [Demo](#demo)
+* [How to run](#how-to-run)
 * [Useful Commands](#commands)
 
-## Module Design
+## Demo
+
+The following instructions explain how to provision the local environment to deploy gateway as a restful webserver.
+
+### How to run
+
+#### Prerequisites
+
+- Docker 23+
+- docker-compose
+
+Run to provision a setup with three blob storage [Minio](https://min.io/) instances and a gateway instance:
+
+```
+docker-compose up --build
+```
+
+<details>
+<summary><strong>Env Variables Configurations</strong></summary>
+
+The gateway process can be configured using the environment variables listed in the table.
+
+| Variable Name              | Definition                         | Default                      |
+|:---------------------------|:-----------------------------------|:-----------------------------|
+| STORAGE_INSTANCES_SELECTOR | Selector to identify storage nodes | "amazin-object-storage-node" |
+| PORT                       | Port for the webserver to listen   | 3000                         |
+| LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
+
+</details>
+
+### Test scenario
+
+_Given_ that the local environment was [provisioned](#how-to-run) successfully,
+
+_when_ the [script](e2e-test/e2e-tests.sh) is executed,
+
+_then_ three end-to-end/round-trip upload+download tests are expected to succeed.
+
+The following test files are used:
+
+- The text file with a dummy text sample "foo bar baz";
+- The `LICENSE` file from the OpenTofu v1.6.0-alpha1 release;
+-
+
+The [`tofu.zip` file](https://github.com/opentofu/opentofu/releases/download/v1.6.0-alpha1/tofu_1.6.0-alpha1_darwin_arm64.zip)
+from the OpenTofu v1.6.0-alpha1 release.
+
+Run the command to execute the tests:
+
+```commandline
+make e2etests
+```
+
+**Note**: the execution requires `bash`, `curl`, `wc`, `grep` and `diff`.
+
+### Endpoints
+
+The gateway can be called from the host machine on http://localhost:3000.
+See the API contract in the [spec file](internal/restfulhandler/apispec.yaml).
+
+## How it works
+
+The gateway webserver is a reverse proxy which also functions as a cluster load balancer. Its modus operandi can be described as follows:
+
+1. Read and validate HTTP request.
+2. Return the response with the error message if the request is invalid. Find additional details in the [API spec file](internal/restfulhandler/apispec.yaml).
+3. Read the list of object storage instances available in the cluster using a "service discovery" mechanism. In the [demo](#demo) example,
+   the gateway calls the Docker daemon over HTTP to obtain the list of available Minio instances.
+4. Communicate to the storage cluster node:
+
+- When a _read_ request is received, the gateway attempts to fetch the requested data by sequentially sending the "read command" to each discovered instance over the network.
+  Data will be proxied to the user as soon as the "read command" returns the "found" status. An error message will be returned if no requested data is found or the read operation fails.
+
+- When a _write_ request is received, the gateway "scans" the cluster by sequentially sending the "find command" to each discovered instance over the network. Provided data will overwrite existing object upon discovery.
+  If the data is not found, a new object will be created, and the data will be written to the instance selected based on the `objectID` provided by the user. The HTTP status code 201 shall be expected if the write operation succeeds,
+  other an error message will be returned.
+
+### Module Design
 
 ```mermaid
 ---
-title: The Gateway design diagram
+title: The code diagram of the gateway module architecture
 ---
 classDiagram
     class Gateway {
         // pkg/gateway/gateway.go
 
-        -storageInstancesSelector       string
-        -storageBucket                  string
-        -storageInstancesFinder         StorageInstancesFinder
+        -storageInstancesSelector string
+        -storageBucket string
+        -storageInstancesFinder StorageInstancesFinder
         -storageConnectionDetailsReader StorageConnectionDetailsReader
-        -newStorageConnectionFn         StorageConnectionFactory
+        -newStorageConnectionFn StorageConnectionFactory
         +Logger              *slog.Logger
 
         +Read(ctx context.Context, id string) io.ReadCloser, bool, error
@@ -81,7 +158,7 @@ class NewClient {
 func"internal/minio.NewClient"
     }
 
-StorageConnectionFactory"1"-->"*"StorageController
+StorageConnectionFactory"1"-->"N"StorageController
 
 minioClient --|> StorageController
 dockerClient --|> StorageConnectionDetailsReader
@@ -94,62 +171,6 @@ Gateway *--NewClient
 
 Handler <|-- Gateway
 ```
-
-## Gateway Deployment as a WebServer
-
-### Endpoints
-
-See the endpoints definition in the [spec file](internal/restfulhandler/apispec.yaml).
-
-## How to run
-
-### Prerequisites
-
-- Docker 23+
-- docker-compose
-
-### Requirements
-
-- The Minio Cluster Instances and the Gateway must run as Docker processes.
-- The Gateway must share the network with the Minio Cluster.
-- The Gateway mush have access to the socket `/var/run/docker.sock` to communicate to the Docker daemon over HTTP.
-
-Run to provision a setup with three Minio instance and a Gateway instance:
-
-```
-docker-compose up --build
-```
-
-### Env Variables Configurations
-
-The Gateway process can be configured using the environment variables listed in the table.
-
-| Variable Name              | Definition                         | Default                      |
-|:---------------------------|:-----------------------------------|:-----------------------------|
-| STORAGE_INSTANCES_SELECTOR | Selector to identify storage nodes | "amazin-object-storage-node" |
-| PORT                       | Port for the webserver to listen   | 3000                         |
-| LOG_DEBUG                  | Logger's debug verbosity level     | true                         |
-
-## Demo
-
-_Given_ that the local environment was [provisioned](#how-to-run) successfully,
-
-_when_ the [script](e2e-test/e2e-tests.sh) is executed,
-
-_then_ three end-to-end/round-trip upload+download tests are expected to succeed.
-
-The following test files are used:
-- The text file with a dummy text sample "foo bar baz";
-- The `LICENSE` file from the OpenTofu v1.6.0-alpha1 release;
-- The [`tofu.zip` file](https://github.com/opentofu/opentofu/releases/download/v1.6.0-alpha1/tofu_1.6.0-alpha1_darwin_arm64.zip) from the OpenTofu v1.6.0-alpha1 release.
-
-Run the command to execute the tests:
-
-```commandline
-make e2etests
-```
-
-**Note**: the execution requires `bash`, `curl`, `wc`, `grep` and `diff`.  
 
 ## Commands
 
