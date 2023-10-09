@@ -213,7 +213,7 @@ func readSortedMapKeys(m map[string]struct{}) []string {
 	return o
 }
 
-// StorageConnectionFinder defines the port to the "service discovery".
+// StorageConnectionFinder defines the port for "service discovery".
 type StorageConnectionFinder interface {
 	// Find scans the "service discovery" records to find instances and return their IDs.
 	Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error)

@@ -13,7 +13,7 @@ URL := http://localhost:3000/object
 
 .PHONY: e2etest
 e2etests: ## Runs e2e tests.
-	@ cd e2e-test && ./e2e-tests.sh
+	@ cd scripts && ./e2e-tests.sh
 
 .PHONY: lint
 lint: ## Runs golangci linters.

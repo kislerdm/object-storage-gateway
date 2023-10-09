@@ -51,13 +51,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	port := "3000"
-	if v, err := strconv.Atoi(os.Getenv("PORT")); err == nil && v > 1000 {
-		port = strconv.Itoa(v)
-	}
-
 	server := &http.Server{
-		Addr:         ":" + port,
+		Addr:         ":8000",
 		ReadTimeout:  -1,
 		WriteTimeout: -1,
 		Handler:      gwHandler,

@@ -1,0 +1,30 @@
+@startuml
+!include <C4/C4_Container>
+
+title Container diagram of the demo setup
+footer "<admin@dkisler.com> - %date('yyyy-MM-dd')"
+
+Person(user, "User")
+System_Ext(ui, "UI", "The application used to read and write blob data objects.")
+
+System_Boundary(n, "Storage network") {
+    Container(gw, "Gateway", "Go, Docker container", "Application to distribute read-write operations amongst the instances within the storage cluster.")
+
+    System_Boundary(c, "Storage cluster") {
+        Container(s0, "Instance", "Go/Minio, Docker container", "Stores data.")
+        Container(s1, "Instance", "Go/Minio, Docker container", "Stores data.")
+        Container(s2, "Instance", "Go/Minio, Docker container", "Stores data.")
+    }
+}
+
+System_Ext(docker, "Docker daemon", "Manages Docker images, containers, networks, and storage volumes.")
+Rel_D(user, ui, "Uses")
+Rel_D(ui, gw, "Sends requests over", "sync, HTTP")
+Rel_R(gw, docker, "Reads connection details from", "sync, HTTP")
+Rel_D(gw, s0, "Proxies to", "sync, HTTP")
+Rel_D(gw, s1, "Proxies to", "sync, HTTP")
+Rel_D(gw, s2, "Proxies to", "sync, HTTP")
+
+SHOW_LEGEND()
+
+@enduml
