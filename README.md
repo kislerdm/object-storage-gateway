@@ -164,7 +164,7 @@ classDiagram
 
 The gateway module can be extended to use different storage and "service discovery" backends:
 
-- a new service discovery client is required to implement the interface `StorageConnectionFinder`.
+- a new service discovery client is required to implement the interface `StorageConnectionReadFinder`.
 - a new storage backed client is required to implement the interface `ObjectReadWriteFinder`.
 
 Find a code snippet example below.
