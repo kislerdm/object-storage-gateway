@@ -85,13 +85,13 @@ The gateway webserver is a reverse proxy which also functions as the storage clu
 
 - When a _read_ request is received, the gateway "scans" the cluster by sequentially sending the "find command" to each 
   discovered instance over the network. Upon discovery, the "read command" will be sent to the instance and returned data will be
-  proxied to the user. An error message will be returned if no requested data is found, or the find or read operation fails.
+  proxied to the user. An error message will be returned if no requested data is found, or if the find or read operations fail.
 
 
 - When a _write_ request is received, the gateway "scans" the cluster by sequentially sending the "find command" to each 
   discovered instance over the network. Provided data will overwrite existing object upon discovery.  If the data is not found, 
   a new object will be created, and the data will be written to the instance selected based on the `objectID` provided by the user. 
-  The HTTP status code 201 shall be expected if the write operation succeeds, other an error message will be returned.
+  The HTTP status code 201 shall be expected if the write operation succeeds, otherwise an error message will be returned.
 
 ### Module Design
 
