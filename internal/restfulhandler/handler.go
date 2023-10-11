@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
@@ -94,7 +95,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer func() { _ = r.Body.Close() }()
-		if err := h.rw.Write(r.Context(), objectID, r.Body); err != nil {
+		if err := h.rw.Write(r.Context(), objectID, r.Body, contentSize(r)); err != nil {
 			h.logError(r, http.StatusInternalServerError, err.Error())
 			writeErrorMessage(w, http.StatusInternalServerError, "failed to write object")
 			return
@@ -108,6 +109,14 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErrorMessage(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+}
+
+func contentSize(r *http.Request) int64 {
+	v, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+	if err != nil {
+		return -1
+	}
+	return v
 }
 
 func concatHeaders(headers http.Header) string {
@@ -167,5 +176,5 @@ func writeErrorMessage(w http.ResponseWriter, statusCode int, s string) {
 // reader defines the interface to store and retrieve data.
 type readWriter interface {
 	Read(ctx context.Context, id string) (readCloser io.ReadCloser, found bool, err error)
-	Write(ctx context.Context, id string, reader io.Reader) error
+	Write(ctx context.Context, id string, reader io.Reader, objectSizeBytes int64) error
 }
