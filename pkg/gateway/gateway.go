@@ -115,7 +115,7 @@ func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, err
 }
 
 // Write writes object to the storage.
-func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error {
+func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, objectSizeBytes int64) error {
 	instances, err := s.storageDiscoveryClient.Find(ctx, s.storageInstancesSelector)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 				slog.String("objectID", id),
 			)
 
-			return conn.Write(ctx, s.storageBucket, id, reader)
+			return conn.Write(ctx, s.storageBucket, id, reader, objectSizeBytes)
 		}
 	}
 
@@ -171,7 +171,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader) error 
 		slog.String("objectID", id),
 	)
 
-	return conn.Write(ctx, s.storageBucket, id, reader)
+	return conn.Write(ctx, s.storageBucket, id, reader, objectSizeBytes)
 }
 
 func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (ObjectReadWriteFinder, error) {
@@ -233,7 +233,7 @@ type ObjectReadWriteFinder interface {
 	Read(ctx context.Context, bucketName, objectName string) (io.ReadCloser, bool, error)
 
 	// Write writes the object.
-	Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
+	Write(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSizeBytes int64) error
 
 	// Find identifies if the object can be found in the instance.
 	Find(ctx context.Context, bucketName, objectName string) (bool, error)

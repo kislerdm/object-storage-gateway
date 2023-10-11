@@ -46,7 +46,7 @@ func (c *Client) Read(ctx context.Context, bucketName, objectName string) (io.Re
 	return reader, true, nil
 }
 
-func (c *Client) Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error {
+func (c *Client) Write(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSizeBytes int64) error {
 	exists, err := c.BucketExists(ctx, bucketName)
 	if err != nil {
 		return fmt.Errorf("cannot store the object: %w", err)
@@ -57,7 +57,7 @@ func (c *Client) Write(ctx context.Context, bucketName, objectName string, reade
 		}
 	}
 
-	_, err = c.PutObject(ctx, bucketName, objectName, reader, -1, minio.PutObjectOptions{})
+	_, err = c.PutObject(ctx, bucketName, objectName, reader, objectSizeBytes, minio.PutObjectOptions{})
 	return err
 }
 

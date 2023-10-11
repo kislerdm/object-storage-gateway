@@ -103,7 +103,7 @@ func TestGateway_Write(t *testing.T) {
 		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{dataReader: inputData})
 
 		// WHEN
-		err := gateway.Write(context.TODO(), inputID, inputData)
+		err := gateway.Write(context.TODO(), inputID, inputData, -1)
 
 		// THEN
 		if err != nil {
@@ -117,7 +117,7 @@ func TestGateway_Write(t *testing.T) {
 		gateway.newStorageConnectionFn = mockMinioConnectionFactory(nil, &mockStorageClient{})
 
 		// WHEN
-		err := gateway.Write(context.TODO(), inputID, inputData)
+		err := gateway.Write(context.TODO(), inputID, inputData, -1)
 
 		// THEN
 		if err != nil {
@@ -148,7 +148,7 @@ func (m *mockStorageClient) Read(_ context.Context, _, _ string) (io.ReadCloser,
 	return io.NopCloser(m.dataReader), m.dataReader != nil, nil
 }
 
-func (m *mockStorageClient) Write(_ context.Context, _, _ string, reader io.Reader) error {
+func (m *mockStorageClient) Write(_ context.Context, _, _ string, reader io.Reader, _ int64) error {
 	if m.err != nil {
 		return m.err
 	}

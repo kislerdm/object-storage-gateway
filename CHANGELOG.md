@@ -1,4 +1,15 @@
-## Unreleased
+## v0.0.6
+
+### Added
+
+- [BREAKING] [[#2](https://github.com/kislerdm/object-storage-gateway/issues/2)] The configuration `objectSizeBytes` was added as the 
+attribute of the `Gateway`'s `Write` method. The change enables to reduce memory consumption significantly: 
+execution of the use case described in the [issue](https://github.com/kislerdm/object-storage-gateway/issues/2) will require ~10MiB of RAM instead of ~1GiB.
+
+---
+**Note** that `objectSizeBytes` can be set to `-1` when the object size is unknown. 
+However, it will result in a greedy memory allocation strategy identical to the one used in the previous releases.
+---
 
 ### v0.0.5
 

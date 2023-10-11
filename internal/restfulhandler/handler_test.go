@@ -42,7 +42,7 @@ func (m *mockReadWriter) Read(_ context.Context, _ string) (readCloser io.ReadCl
 	return io.NopCloser(m.readCloser), m.readCloser != nil, nil
 }
 
-func (m *mockReadWriter) Write(_ context.Context, _ string, reader io.Reader) error {
+func (m *mockReadWriter) Write(_ context.Context, _ string, reader io.Reader, _ int64) error {
 	if m.err != nil {
 		return m.err
 	}

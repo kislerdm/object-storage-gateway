@@ -109,7 +109,7 @@ classDiagram
        +Logger *slog.Logger
 
       +Read(ctx context.Context, id string) io.ReadCloser, bool, error
-      +Write(ctx context.Context, id string, reader io.Reader) error
+      +Write(ctx context.Context, id string, reader io.Reader, objectSizeBytes int64) error
   }
 
   class StorageConnectionReadFinder {
@@ -123,7 +123,7 @@ classDiagram
       // pkg/gateway/gateway.go
       <<interface>>
       Read(ctx context.Context, bucketName, objectName string) io.ReadCloser, bool, error
-      Write(ctx context.Context, bucketName, objectName string, reader io.Reader) error
+      Write(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSizeBytes int64) error
       Find(ctx context.Context, bucketName, objectName string) bool, error
   }
 
