@@ -5,8 +5,8 @@ info:
   contact:
     email: admin@dkisler.com
   license:
-    name: "Apache 2.0"
-    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+    name: "MIT"
+    url: "https://opensource.org/license/mit/"
 paths:
   /object/{id}:
     parameters:
