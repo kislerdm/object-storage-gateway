@@ -7,8 +7,8 @@ attribute of the `Gateway`'s `Write` method. The change enables to reduce memory
 execution of the use case described in the [issue](https://github.com/kislerdm/object-storage-gateway/issues/2) will require ~10MiB of RAM instead of ~1GiB.
 
 ---
-**Note** that `objectSizeBytes` can be set to `-1` when the object size is unknown. 
-However, it will result in a greedy memory allocation strategy identical to the one used in the previous releases.
+**Note** that `objectSizeBytes` can be set to `-1` when the object size is unknown. However, it will result in a greedy memory allocation strategy identical to the one used in the previous releases.
+
 ---
 
 ### v0.0.5
