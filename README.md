@@ -177,18 +177,39 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"io"
 	"strings"
 	
 	"github.com/kislerdm/object-storage-gateway/pkg/gateway"
 )
 
+type myStorageClient struct { 
+	// Attributes of your storage backend's client, i.e. ObjectReadWriteFinder implementation.
+}
+
+func (m myStorageClient) Read(ctx context.Context, bucketName, objectName string) (io.ReadCloser, bool, error) {
+	panic("implement me") 
+	// Definition of the logic to read the object.
+}
+
+func (m myStorageClient) Write(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSizeBytes int64) error {
+	panic("implement me") 
+	// Definition of the logic to write the object.
+}
+
+func (m myStorageClient) Find(ctx context.Context, bucketName, objectName string) (bool, error) {
+	panic("implement me") 
+	// Definition of the logic to find if the object exists in the storage instance.
+}
+
 func NewStorageConnection(ipAddress, accessKeyID, secretAccessKey string) (gateway.ObjectReadWriteFinder, error) {
-	panic("implement me")
-	// Definition of the logic to initialise your storage backend.
+	panic("implement me") 
+	// Definition of the logic to initialise your storage backend, i.e. StorageConnectionFn implementation. 
+	return myStorageClient{...}, nil
 }
 
 type myServiceDiscoveryClient struct {
-	// Attributes of your ServiceDiscoveryClient
+	// Attributes of your service discovery backend, i.e. StorageConnectionReadFinder implementation.
 }
 
 func (m myServiceDiscoveryClient) Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error) {
