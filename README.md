@@ -285,8 +285,3 @@ The codebase present in the repository is distributed under the [MIT license](LI
 
 The images and graphical material is distributed under
 the [CC BY-NC-SA 4.0 DEED](https://creativecommons.org/licenses/by-nc-sa/4.0/) license.
-
-## Disclaimer
-
-The project was developed as a solution addressing the problem
-described [here](https://github.com/spacelift-io/homework-object-storage).
