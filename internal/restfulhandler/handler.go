@@ -46,7 +46,6 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.String("path", r.URL.Path),
 		slog.String("method", r.Method),
 		slog.Int64("content-length", r.ContentLength),
-		slog.String("headers", concatHeaders(r.Header)),
 	)
 
 	if !h.knownRoute(r.URL.Path) {
@@ -117,23 +116,6 @@ func contentSize(r *http.Request) int64 {
 		return -1
 	}
 	return v
-}
-
-func concatHeaders(headers http.Header) string {
-	if len(headers) == 0 {
-		return ""
-	}
-	var buf strings.Builder
-	for k := range headers {
-		for _, v := range headers.Values(k) {
-			buf.WriteString(k)
-			buf.WriteString("=")
-			buf.WriteString(v)
-			buf.WriteString(",")
-		}
-	}
-	o := buf.String()
-	return o[:len(o)-1]
 }
 
 func (h Handler) logError(r *http.Request, statusCode int, msg string) {

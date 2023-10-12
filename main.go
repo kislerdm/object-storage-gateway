@@ -36,7 +36,7 @@ func main() {
 
 	const storageBucket = "store"
 
-	gw, err := gateway.New(storageInstanceSelector, storageBucket, cl, minio.NewClient,
+	gw, err := gateway.New(storageInstanceSelector, storageBucket, cl, cl, minio.NewClient,
 		slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: true,
 			Level:     loggerLevel,

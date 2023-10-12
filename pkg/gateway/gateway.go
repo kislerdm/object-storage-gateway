@@ -13,12 +13,17 @@ import (
 func New(
 	storageInstancesSelector string,
 	storageBucket string,
-	storageDiscoveryClient StorageConnectionReadFinder,
+	serviceRegistryClient ServiceRegistryScanner,
+	connectionDetailsReader AuthenticationDetailsReader,
 	newStorageConnectionFn StorageConnectionFn,
 	logger *slog.Logger,
 ) (*Gateway, error) {
-	if storageDiscoveryClient == nil {
-		return nil, errors.New("storageDiscoveryClient must be not nil")
+	if serviceRegistryClient == nil {
+		return nil, errors.New("serviceRegistryClient must be not nil")
+	}
+
+	if connectionDetailsReader == nil {
+		return nil, errors.New("connectionDetailsReader must be not nil")
 	}
 
 	if newStorageConnectionFn == nil {
@@ -32,7 +37,8 @@ func New(
 	o := &Gateway{
 		storageInstancesSelector: storageInstancesSelector,
 		storageBucket:            storageBucket,
-		storageDiscoveryClient:   storageDiscoveryClient,
+		serviceRegistryClient:    serviceRegistryClient,
+		connectionDetailsReader:  connectionDetailsReader,
 		newStorageConnectionFn:   newStorageConnectionFn,
 		Logger:                   logger,
 	}
@@ -60,15 +66,16 @@ type Gateway struct {
 	// storageBucket  bucket for RW operations.
 	storageBucket string
 
-	storageDiscoveryClient StorageConnectionReadFinder
-	newStorageConnectionFn StorageConnectionFn
+	serviceRegistryClient   ServiceRegistryScanner
+	connectionDetailsReader AuthenticationDetailsReader
+	newStorageConnectionFn  StorageConnectionFn
 
 	Logger *slog.Logger
 }
 
 // Read reads the object given its ID.
 func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, error) {
-	instances, err := s.storageDiscoveryClient.Find(ctx, s.storageInstancesSelector)
+	instances, err := s.serviceRegistryClient.Scan(ctx, s.storageInstancesSelector)
 	if err != nil {
 		return nil, false, err
 	}
@@ -78,8 +85,8 @@ func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, err
 	}
 
 	// go round-robin over all hosts and try to find requested object.
-	for instanceID := range instances {
-		conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+	for instanceID, ipAddress := range instances {
+		conn, err := s.newStorageInstanceConnection(ctx, instanceID, ipAddress)
 		if err != nil {
 			return nil, false, err
 		}
@@ -116,7 +123,7 @@ func (s *Gateway) Read(ctx context.Context, id string) (io.ReadCloser, bool, err
 
 // Write writes object to the storage.
 func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, objectSizeBytes int64) error {
-	instances, err := s.storageDiscoveryClient.Find(ctx, s.storageInstancesSelector)
+	instances, err := s.serviceRegistryClient.Scan(ctx, s.storageInstancesSelector)
 	if err != nil {
 		return err
 	}
@@ -127,7 +134,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, object
 
 	// go round-robin over all hosts to find if the object is stored to one of storage nodes
 	// it's required to ensure the "sticky"-condition: overwrite already existing object
-	for instanceID := range instances {
+	for instanceID, ipAddress := range instances {
 		s.Logger.Debug("searching",
 			slog.String("operation", "write"),
 			slog.String("instanceID", instanceID),
@@ -135,7 +142,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, object
 		)
 
 		var conn ObjectReadWriteFinder
-		conn, err = s.newStorageInstanceConnection(ctx, instanceID)
+		conn, err = s.newStorageInstanceConnection(ctx, instanceID, ipAddress)
 		if err != nil {
 			return err
 		}
@@ -160,7 +167,7 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, object
 	// define the instance to store new object
 	instanceID := pickStorageInstance(instances, id)
 
-	conn, err := s.newStorageInstanceConnection(ctx, instanceID)
+	conn, err := s.newStorageInstanceConnection(ctx, instanceID, instances[instanceID])
 	if err != nil {
 		return err
 	}
@@ -174,8 +181,11 @@ func (s *Gateway) Write(ctx context.Context, id string, reader io.Reader, object
 	return conn.Write(ctx, s.storageBucket, id, reader, objectSizeBytes)
 }
 
-func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (ObjectReadWriteFinder, error) {
-	ipAddress, accessKeyID, secretAccessKey, err := s.storageDiscoveryClient.Read(ctx, id)
+func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id, ipAddress string) (
+	ObjectReadWriteFinder,
+	error,
+) {
+	accessKeyID, secretAccessKey, err := s.connectionDetailsReader.Read(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +194,7 @@ func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id string) (
 }
 
 // pickStorageInstance randomly selects the storage instance.
-func pickStorageInstance(storageInstanceIDs map[string]struct{}, objectID string) (id string) {
+func pickStorageInstance(storageInstanceIDs map[string]string, objectID string) (id string) {
 	if len(storageInstanceIDs) == 0 {
 		return ""
 	}
@@ -208,7 +218,7 @@ func hash(id string) int {
 	return int(o)
 }
 
-func readSortedMapKeys(m map[string]struct{}) []string {
+func readSortedMapKeys(m map[string]string) []string {
 	var o = make([]string, len(m))
 	var i int
 	for k := range m {
@@ -219,12 +229,16 @@ func readSortedMapKeys(m map[string]struct{}) []string {
 	return o
 }
 
-// StorageConnectionReadFinder defines the port for "service discovery".
-type StorageConnectionReadFinder interface {
-	// Find scans the "service discovery" records to find instances and return their IDs.
-	Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error)
-	// Read reads ip address and authentication details to connect to the instance.
-	Read(ctx context.Context, id string) (ipAddress, accessKeyID, secretAccessKey string, err error)
+// ServiceRegistryScanner defines the port to query the service registry.
+type ServiceRegistryScanner interface {
+	// Scan scans the "service discovery" records to find instances and return the map ID -> IP address.
+	Scan(ctx context.Context, serviceLabelFilter string) (map[string]string, error)
+}
+
+// AuthenticationDetailsReader defines the port to read auth details to connect to the storage instance.
+type AuthenticationDetailsReader interface {
+	// Read reads the authentication details to connect to the instance.
+	Read(ctx context.Context, instanceID string) (accessKeyID, secretAccessKey string, err error)
 }
 
 // ObjectReadWriteFinder defines the port to the storage instance.

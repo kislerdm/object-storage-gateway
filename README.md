@@ -104,7 +104,8 @@ classDiagram
       // pkg/gateway/gateway.go
       -storageInstancesSelector string
       -storageBucket            string
-      -storageDiscoveryClient   StorageConnectionFinder
+      -serviceRegistryClient   ServiceRegistryScanner
+      -connectionDetailsReader AuthenticationDetailsReader
       -newStorageConnectionFn   StorageConnectionFn
        +Logger *slog.Logger
 
@@ -112,11 +113,16 @@ classDiagram
       +Write(ctx context.Context, id string, reader io.Reader, objectSizeBytes int64) error
   }
 
-  class StorageConnectionReadFinder {
+  class ServiceRegistryScanner {
       // pkg/gateway/gateway.go
       <<Interface>>
-      Find(ctx context.Context, instanceNameFilter string) map[string]struct, error
-      Read(ctx context.Context, id string) string, string, string, error
+    Scan(ctx context.Context, serviceLabelFilter string) map[string]string, error
+  }
+
+  class AuthenticationDetailsReader {
+    // pkg/gateway/gateway.go
+    <<Interface>>
+    Read(ctx context.Context, instanceID string) string, string, error
   }
 
   class ObjectReadWriteFinder {
@@ -153,7 +159,8 @@ classDiagram
   StorageConnectionFn "1" --> "N" ObjectReadWriteFinder
   
   minioClient --|> ObjectReadWriteFinder
-  dockerClient --|> StorageConnectionReadFinder
+  dockerClient --|> ServiceRegistryScanner
+  dockerClient --|> AuthenticationDetailsReader
   NewClient --|> StorageConnectionFn
   Gateway *-- dockerClient
   Gateway *-- NewClient
@@ -164,7 +171,8 @@ classDiagram
 
 The gateway module can be extended to use different storage and "service discovery" backends:
 
-- a new service discovery client is required to implement the interface `StorageConnectionReadFinder`.
+- a new service discovery client is required to implement the interface `ServiceRegistryScanner`.
+- a new secrets manager client is required to implement the interface `AuthenticationDetailsReader`.
 - a new storage backed client is required to implement the interface `ObjectReadWriteFinder`.
 
 Find a code snippet example below.
@@ -208,18 +216,22 @@ func NewStorageConnection(ipAddress, accessKeyID, secretAccessKey string) (gatew
 	return myStorageClient{...}, nil
 }
 
-type myServiceDiscoveryClient struct {
-	// Attributes of your service discovery backend, i.e. StorageConnectionReadFinder implementation.
+type myServiceRegistryClient struct {
+	// Attributes of your service registry backend, i.e. ServiceRegistryScanner implementation.
 }
 
-func (m myServiceDiscoveryClient) Find(ctx context.Context, instanceNameFilter string) (map[string]struct{}, error) {
+func (m myServiceRegistryClient) Scan(ctx context.Context, serviceLabelFilter string) (map[string]string, error) {
 	panic("implement me")
 	// Definition of the logic to find storage instances.
 }
 
-func (m myServiceDiscoveryClient) Read(ctx context.Context, id string) (string, string, string, err error) {
+type mySecretsManagerClient struct {
+  // Attributes of your secrets manager backend, i.e. AuthenticationDetailsReader implementation.
+}
+
+func (m mySecretsManagerClient) Read(ctx context.Context, instanceID string) (string, string, error) {
 	panic("implement me")
-	// Definition of the logic to retrieve the details required to connected to the storage instance.
+	// Definition of the logic to retrieve the auth details required to connected to the storage instance.
 }
 
 func main() {
@@ -228,7 +240,8 @@ func main() {
 		storageBucket           = "mybucket"
 	)
 
-	gw, err := gateway.New(storageInstanceSelector, storageBucket, &myServiceDiscoveryClient{}, NewStorageConnection,
+	gw, err := gateway.New(storageInstanceSelector, storageBucket, 
+		myServiceRegistryClient{}, mySecretsManagerClient{}, NewStorageConnection,
 		slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true})),
 	)
 	if err != nil {

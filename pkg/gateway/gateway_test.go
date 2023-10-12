@@ -164,26 +164,25 @@ type mockStorageDiscoveryClient struct {
 	err error
 }
 
-func (m mockStorageDiscoveryClient) Find(_ context.Context, instanceNameFilter string) (map[string]struct{}, error) {
+func (m mockStorageDiscoveryClient) Scan(_ context.Context, instanceNameFilter string) (map[string]string, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return map[string]struct{}{instanceNameFilter + "-0": {}}, nil
+	return map[string]string{instanceNameFilter + "-0": "192.0.2.10"}, nil
 }
 
-func (m mockStorageDiscoveryClient) Read(_ context.Context, _ string) (
-	ipAddress, accessKeyID, secretAccessKey string, err error,
-) {
+func (m mockStorageDiscoveryClient) Read(_ context.Context, _ string) (accessKeyID, secretAccessKey string, err error) {
 	if m.err != nil {
-		return "", "", "", m.err
+		return "", "", m.err
 	}
-	return "192.0.2.10", "foo", "bar", nil
+	return "foo", "bar", nil
 }
 
 func newMockGateway() *Gateway {
 	return &Gateway{
 		storageInstancesSelector: mockClusterPrefix,
-		storageDiscoveryClient:   &mockStorageDiscoveryClient{},
+		serviceRegistryClient:    &mockStorageDiscoveryClient{},
+		connectionDetailsReader:  &mockStorageDiscoveryClient{},
 		newStorageConnectionFn:   mockMinioConnectionFactory(errors.New("undefined"), nil),
 		Logger:                   slog.Default(),
 	}
@@ -191,7 +190,7 @@ func newMockGateway() *Gateway {
 
 func Test_readSortedMapKeys(t *testing.T) {
 	type args struct {
-		m map[string]struct{}
+		m map[string]string
 	}
 	tests := []struct {
 		name string
@@ -201,21 +200,21 @@ func Test_readSortedMapKeys(t *testing.T) {
 		{
 			name: "1 element",
 			args: args{
-				m: map[string]struct{}{"foo": {}},
+				m: map[string]string{"foo": ""},
 			},
 			want: []string{"foo"},
 		},
 		{
 			name: "3 elements",
 			args: args{
-				m: map[string]struct{}{"foo": {}, "baz": {}, "bar": {}},
+				m: map[string]string{"foo": "", "baz": "", "bar": ""},
 			},
 			want: []string{"bar", "baz", "foo"},
 		},
 		{
 			name: "empty",
 			args: args{
-				m: map[string]struct{}{},
+				m: map[string]string{},
 			},
 			want: []string{},
 		},
@@ -278,7 +277,7 @@ func Test_hash(t *testing.T) {
 
 func Test_pickStorageInstance(t *testing.T) {
 	type args struct {
-		storageInstanceIDs map[string]struct{}
+		storageInstanceIDs map[string]string
 		objectID           string
 	}
 	tests := []struct {
@@ -296,21 +295,21 @@ func Test_pickStorageInstance(t *testing.T) {
 		{
 			name: "empty input",
 			args: args{
-				storageInstanceIDs: map[string]struct{}{},
+				storageInstanceIDs: map[string]string{},
 			},
 			wantID: "",
 		},
 		{
 			name: "single instance",
 			args: args{
-				storageInstanceIDs: map[string]struct{}{"foo": {}},
+				storageInstanceIDs: map[string]string{"foo": ""},
 			},
 			wantID: "foo",
 		},
 		{
 			name: `three instances - obj:"1"`,
 			args: args{
-				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				storageInstanceIDs: map[string]string{"foo": "", "bar": "", "baz": ""},
 				objectID:           "1",
 			},
 			// 49 % 3 = 1
@@ -319,7 +318,7 @@ func Test_pickStorageInstance(t *testing.T) {
 		{
 			name: "three instances - obj:foo",
 			args: args{
-				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				storageInstanceIDs: map[string]string{"foo": "", "bar": "", "baz": ""},
 				objectID:           "foo",
 			},
 			// 324 % 3 = 0
@@ -328,7 +327,7 @@ func Test_pickStorageInstance(t *testing.T) {
 		{
 			name: "three instances - obj:FoO0",
 			args: args{
-				storageInstanceIDs: map[string]struct{}{"foo": {}, "bar": {}, "baz": {}},
+				storageInstanceIDs: map[string]string{"foo": "", "bar": "", "baz": ""},
 				objectID:           "FoO0",
 			},
 			// 308 % 3 = 2

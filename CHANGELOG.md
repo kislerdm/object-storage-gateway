@@ -1,3 +1,11 @@
+## v0.0.7
+
+### Changed
+
+- [BREAKING] The initialisation config required to initialise the `Gateway` has changed. Two clients are required to establish connection to a storage instance now: 
+  - to query the service registry (interface `ServiceRegistryScanner`); 
+  - to read the auth details to connect to the instance (interface `AuthenticationDetailsReader`).
+
 ## v0.0.6
 
 ### Added
