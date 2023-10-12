@@ -5,6 +5,7 @@
 - [BREAKING] The initialisation config required to initialise the `Gateway` has changed. Two clients are required to establish connection to a storage instance now: 
   - to query the service registry (interface `ServiceRegistryScanner`); 
   - to read the auth details to connect to the instance (interface `AuthenticationDetailsReader`).
+- Bumped golang.org/x/net from 0.14.0 to 0.17.0. Find details [here](https://github.com/kislerdm/object-storage-gateway/security/dependabot/1).
 
 ## v0.0.6
 
