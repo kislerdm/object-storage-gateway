@@ -193,7 +193,7 @@ func (s *Gateway) newStorageInstanceConnection(ctx context.Context, id, ipAddres
 	return s.newStorageConnectionFn(ipAddress, accessKeyID, secretAccessKey)
 }
 
-// pickStorageInstance randomly selects the storage instance.
+// pickStorageInstance selects the storage instance.
 func pickStorageInstance(storageInstanceIDs map[string]string, objectID string) (id string) {
 	if len(storageInstanceIDs) == 0 {
 		return ""
